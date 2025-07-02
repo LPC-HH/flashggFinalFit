@@ -1,0 +1,8 @@
+{
+    "mu_inclusive":{
+        "pois":"r",
+        "fits":"AsymptoticLimit:syst:r",
+        "points":"1",
+        "fit_opts":"--saveWorkspace --freezeParameters MH"
+    }
+}

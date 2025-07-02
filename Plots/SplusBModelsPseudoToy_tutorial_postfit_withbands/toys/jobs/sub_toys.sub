@@ -1,0 +1,11 @@
+executable = sub_toys.sh
+arguments = $(ProcId)
+output                = sub_toys.$(ClusterId).$(ProcId).out
+error                 = sub_toys.$(ClusterId).$(ProcId).err
+log                   = sub_toys.$(ClusterId).log
+
+on_exit_hold = (ExitBySignal == True) || (ExitCode != 0)
+periodic_release =  (NumJobStarts < 3) && ((CurrentTime - EnteredCurrentStatus) > 600)
+
++JobFlavour = "espresso"
+queue 500
