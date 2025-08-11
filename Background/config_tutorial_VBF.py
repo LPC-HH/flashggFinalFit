@@ -4,7 +4,7 @@ backgroundScriptCfg = {
   
   # Setup
   # 'inputWS':'PATH_TO_INPUTS/workspaces/data/allData_2022preEE.root', # location of 'allData.root' file
-  'inputWS':'/uscms_data/d3/mbarrial/higgsAnalysis/CMSSW_14_0_14/src/HToMuMu/root_io/tuples/split_tuples/VBF/ws/allData_combined.root', # location of 'allData.root' file
+  'inputWS':'/eos/home-y/yulou/Fnal-hmm/root_io/tuples/split_tuples/VBF/ws/allData_combined.root', # location of 'allData.root' file
 
   'cats':'auto', # auto: automatically inferred from input ws
   'catOffset':0, # add offset to category numbers (useful for categories from different allData.root files)  

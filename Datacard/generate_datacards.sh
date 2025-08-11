@@ -71,7 +71,7 @@ run_combined_datacard() {
 
 ### ggH
 GGH_CATS=("ggHcat1" "ggHcat2" "ggHcat3")
-GGH_PATH="/uscms_data/d3/mbarrial/higgsAnalysis/CMSSW_14_0_14/src/HToMuMu/root_io/tuples/split_tuples/ggH/ws_GG2H"
+GGH_PATH="/eos/home-y/yulou/Fnal-hmm/root_io/tuples/split_tuples/ggH/ws_GG2H"
 
 echo "---------------------------- ggH -----------------------------------"
 for cat in "${GGH_CATS[@]}"; do
@@ -89,7 +89,7 @@ rm -f yields_tutorial/*.pkl
 
 ### VBF
 VBF_CATS=("VBFcat1" "VBFcat2" "VBFcat3" "VBFcat4")
-VBF_PATH="/uscms_data/d3/mbarrial/higgsAnalysis/CMSSW_14_0_14/src/HToMuMu/root_io/tuples/split_tuples/VBF/ws_VBF"
+VBF_PATH="/eos/home-y/yulou/Fnal-hmm/root_io/tuples/split_tuples/VBF/ws_VBF"
 
 echo "---------------------------- VBF -----------------------------------"
 for cat in "${VBF_CATS[@]}"; do

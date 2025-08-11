@@ -6,7 +6,7 @@ signalScriptCfg = {
   
   # Setup
   # 'inputWSDir':'PATH_TO_INPUTS/workspaces/signal_%s'%_year,
-  'inputWSDir':'/uscms_data/d3/mbarrial/higgsAnalysis/CMSSW_14_0_14/src/HToMuMu/root_io/tuples/split_tuples/ggH/ws_GG2H',
+  'inputWSDir':'/eos/home-y/yulou/Fnal-hmm/root_io/tuples/split_tuples/ggH/ws_GG2H',
 
   'procs':'auto', # if auto: inferred automatically from filenames
   'cats':'auto', # if auto: inferred automatically from (0) workspace
