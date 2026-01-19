@@ -34,7 +34,7 @@ scram b clean
 scram b -j 8
 
 # Install Final Fit package
-git clone https://github.com/MatBarria/flashggFinalFit.git
+git clone git@github.com:LPC-HH/flashggFinalFit.git
 cd flashggFinalFit/
 source setup.sh
 ```
