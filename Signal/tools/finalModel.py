@@ -63,6 +63,7 @@ def initialiseXSBR():
   while( mh < 130.05 ):
     for pm in productionModes: xsbr[pm].append(getXS(SM,MHVar,mh,pm))
     xsbr[decayMode].append(getBR(SM,MHVar,mh,decayMode))
+    #xsbr[decayMode].append(1)
     xsbr['constant'].append(1.)
     mh += 0.1
   for pm in productionModes: xsbr[pm] = np.asarray(xsbr[pm])
