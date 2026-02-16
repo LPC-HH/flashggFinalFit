@@ -18,8 +18,25 @@ def extractWSFileNames( _inputWSDir ):
   if not os.path.isdir(_inputWSDir):
     print(" --> [ERROR] No such directory (%s)")
     return False
-  return glob.glob("%s/output_*.root"%_inputWSDir)
+  return glob.glob("%s/output*.root"%_inputWSDir)
 
+#def extractListOfProcs( _listOfWSFileNames ):
+#  procs = []
+#  for fName in _listOfWSFileNames:
+#    p = fName.split("pythia8_")[1].split(".root")[0]
+#    if p not in procs: procs.append(p)
+#  return ",".join(procs)
+
+def extractListOfProcs(_listOfWSFileNames):
+    procs = []
+    for fName in _listOfWSFileNames:
+        baseName = os.path.basename(fName) 
+        p = baseName.rsplit("_", 1)[-1].replace(".root", "")
+        if p not in procs:
+            procs.append(p)
+    return ",".join(procs)
+
+<<<<<<< HEAD
 def extractListOfProcs( _listOfWSFileNames ):
   procs = []
   print("_listOfWSFileNames: ", _listOfWSFileNames)
@@ -27,6 +44,8 @@ def extractListOfProcs( _listOfWSFileNames ):
     p = fName.split("pythia8_")[1].split(".root")[0]
     if p not in procs: procs.append(p)
   return ",".join(procs)
+=======
+>>>>>>> 6b99263 (Add/update scripts and DYCore source)
 
 def extractListOfCats( _listOfWSFileNames ):
   f0 = ROOT.TFile(_listOfWSFileNames[0]) 
@@ -37,7 +56,7 @@ def extractListOfCats( _listOfWSFileNames ):
     # Skip systematics shifts
     if "sigma" in d.GetName(): continue
     # Skip NOTAG
-    elif "NOTAG" in d.GetName(): continue
+#    elif "NOTAG" in d.GetName(): continue
     # Add to list: name of the form {proc}_{mass}_{sqrts}_{cat}
     cats.append(d.GetName().split("_%s_"%sqrts__)[-1])
   ws.Delete()
@@ -75,14 +94,31 @@ def signalFromFileName(_fileName):
     if "ZToLL" in _fileName: d = "_ZToLL"
     elif "ZToNuNu" in _fileName: d = "_ZToNuNu"
     else: d = "_ZToQQ"
-  elif "GluGlu" in _fileName: p = "ggh"
-  elif "VBF" in _fileName: p = "vbf"
+  elif "GluGlu" in _fileName: p = "ggH"
+  elif "VBF" in _fileName: p = "VBFH"
   elif "WH" in _fileName: p = "wh"
-  elif "ZH" in _fileName: p = "zh"
+  elif "ZH" in _fileName: p = "ZH"
   elif "ttH" in _fileName: p = "tth"
   elif "THQ" in _fileName: p = "thq"
   elif "THW" in _fileName: p = "thw"
   elif "bbH" in _fileName: p = "bbh"
+  
+  #below added by Zhengliang
+  elif "DY" in _fileName: p = "dy"
+  elif "EWK" in _fileName: p = "EWK"
+  elif "TTH" in _fileName: p = "TTH"
+  elif "WminusH" in _fileName: p = "WmH"
+  elif "WplusH" in _fileName: p = "WpH"
+  elif "WW" in _fileName: p = "WW"
+  elif "WWW" in _fileName: p = "WWW"
+  elif "WWZ" in _fileName: p = "WWZ"
+  elif "WZZ" in _fileName: p = "WZZ"
+  elif "WZ" in _fileName: p = "WZ"
+  elif "ZZZ" in _fileName: p = "ZZZ"
+  elif "ZZ" in _fileName: p = "ZZ"
+  elif "TT" in _fileName: p = "TT"
+
+  
   else:
     print(" --> [ERROR]: cannot extract production mode from input file name. Please update tools.commonTools.signalFromFileName")
     exit(1)
@@ -91,18 +127,18 @@ def signalFromFileName(_fileName):
 def massFromFileName(_fileName):
   m = 125 #default
   if "_M" in _fileName:
-    m = _fileName.split("_M")[-1].split("_")[0]
+    m = _fileName.split("_M-")[-1].split("_")[0]
   return m
 
 # Function for converting STXS process to production mode in dataset name
 procToDataMap = od()
 procToDataMap['GG2H'] = 'ggh'
-procToDataMap['VBF'] = 'vbf'
+procToDataMap['VBF'] = 'VBF'
 procToDataMap['WH2HQQ'] = 'wh'
 procToDataMap['ZH2HQQ'] = 'zh'
 procToDataMap['QQ2HLNU'] = 'wh'
 procToDataMap['QQ2HLL'] = 'zh'
-procToDataMap['TTH'] = 'tth'
+procToDataMap['TTH'] = 'TTH'
 procToDataMap['BBH'] = 'bbh'
 procToDataMap['THQ'] = 'thq'
 procToDataMap['THW'] = 'thw'

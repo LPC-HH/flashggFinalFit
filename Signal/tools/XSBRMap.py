@@ -32,12 +32,27 @@ globalXSBRMap['example']['THW'] = {'mode':'tHW'}
 # These are not yet stored in Combine, so we will use the constant-factor approach 
 # Setting the values at MH=125.38 GeV
 globalXSBRMap['tutorial'] = od()
+<<<<<<< HEAD
 # globalXSBRMap['tutorial']['decay'] = {'mode':'hgg'}
 globalXSBRMap['tutorial']['decay'] = {'mode':'hmm'}
 globalXSBRMap['tutorial']['GG2H'] = {'mode':'constant', 'factor':1}
 # globalXSBRMap['tutorial']['GG2H'] = {'mode':'constant', 'factor':52.23}
 globalXSBRMap['tutorial']['VBF'] = {'mode':'constant', 'factor':1}
 # globalXSBRMap['tutorial']['VBF'] = {'mode':'constant', 'factor':4.067}
+=======
+globalXSBRMap['tutorial']['decay'] = {'mode':'hmm'}
+#globalXSBRMap['tutorial']['GG2H'] = {'mode':'constant', 'factor':51.96}
+#globalXSBRMap['tutorial']['VBF'] = {'mode':'constant', 'factor':4.067}
+#below added by Zhengliang
+globalXSBRMap['tutorial']['ggH'] = {'mode':'constant', 'factor':51.96}  # GG2H
+globalXSBRMap['tutorial']['VBFH'] = {'mode':'qqH', 'factor':4.067} # VBF
+globalXSBRMap['tutorial']['TTH'] = {'mode':'ttH', 'factor':0.508}  # ttH 
+globalXSBRMap['tutorial']['WmH'] = {'mode':'WH', 'factor':0.832}  # WmH
+globalXSBRMap['tutorial']['WpH'] = {'mode':'WH', 'factor':0.832}  # WpH
+globalXSBRMap['tutorial']['ZH'] = {'mode':'constant', 'factor':0.884}   # ZH
+
+#combine only support: "ggH", "bbH", "qqH", "ttH", "ggZH", "WH", "ZH", "tHq", "tHW"
+>>>>>>> 6b99263 (Add/update scripts and DYCore source)
 
 # STXS analysis: add factor for bin composition
 globalXSBRMap['STXS'] = od()

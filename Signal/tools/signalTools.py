@@ -7,7 +7,43 @@ from collections import OrderedDict as od
 from commonObjects import *
 
 # Functions for manip RooDataSets
-def reduceDataset(_d,_argset): return _d.reduce(_argset)
+def reduceDataset(_d, _argset):
+    """Reduce dataset to specified variables using correct ROOT API"""
+    # 确保数据集和变量集合有效
+    if not _d:
+        raise RuntimeError("Dataset is null in reduceDataset")
+    if not _argset:
+        raise RuntimeError("ArgSet is null in reduceDataset")
+    
+    # 打印调试信息
+    print(f"Reducing dataset: {_d.GetName()}")
+    print(f"Using variables: {[v.GetName() for v in _argset]}")
+    
+    try:
+        # 方法1：使用 SelectVars 命令参数
+        cmd_arg = ROOT.RooFit.SelectVars(_argset)
+        return _d.reduce(cmd_arg)
+    except Exception as e:
+        print(f"Method 1 failed: {str(e)}")
+        try:
+            # 方法2：使用更直接的调用方式
+            return _d.reduce(_argset, "")
+        except Exception as e:
+            print(f"Method 2 failed: {str(e)}")
+            try:
+                # 方法3：创建新的数据集并导入值
+                reduced_data = ROOT.RooDataSet(
+                    f"{_d.GetName()}_reduced",
+                    f"Reduced version of {_d.GetName()}",
+                    _argset
+                )
+                for i in range(_d.numEntries()):
+                    _d.get(i)
+                    reduced_data.add(_argset)
+                return reduced_data
+            except Exception as e:
+                print(f"Method 3 failed: {str(e)}")
+                raise RuntimeError("All reduction methods failed")
 
 def splitRVWV(_d,_argset,mode="RV"):
   # Split into RV/WV senario at dZ = 1cm

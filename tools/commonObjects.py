@@ -18,6 +18,7 @@ lumiMap = {
     '2016':36.33, 
     '2017':41.48, 
     '2018':59.83, 
+<<<<<<< HEAD
     # 'combined':137.65, 
     # 'merged':137.65,
     '2022preEE':8.00,
@@ -25,6 +26,20 @@ lumiMap = {
     'merged':170.97,
     #'combined':170.97,
     'combined':0.001,
+=======
+    'combined':58.927, 
+    'merged':137.65,
+    '2022preEE':8.00,
+    '2022postEE':26.70,
+    '2022': 7.9804,    #below added by Zhengliang
+#    '2022': 34.652, #wrong, just a test
+    '2022EE': 26.7,
+    '2023': 17.794,
+    '2023BPix': 9.451,
+    '2022data': 34.652,
+    '2023data': 24.275,
+    'alldata': 58.927    
+>>>>>>> 6b99263 (Add/update scripts and DYCore source)
 }
 # If using ReReco samples then switch to lumiMap below (missing data in 2018 EGamma data set)
 #lumiMap = {'2016':36.33, '2017':41.48, '2018':59.35, 'combined':137.17, 'merged':137.17}
@@ -38,13 +53,23 @@ BR_Z_qq = 69.91*0.01
 BR_W_qq = 67.41*0.01
 
 # Production modes and decay channel: for extract XS from combine
+#productionModes = ['ggH','qqH','TTH','tHq','tHW','ggZH','WH','ZH','bbH', 'VBFH', 'WmH', 'WpH']
+
 productionModes = ['ggH','qqH','ttH','tHq','tHW','ggZH','WH','ZH','bbH']
+<<<<<<< HEAD
 #decayMode = 'hgg'
 decayMode = 'hmm'
 
 # List of years
 # years_to_process = ['2016','2017','2018','2022preEE','2022postEE']
 years_to_process = ['combined']
+=======
+decayMode = 'hmm'
+
+# List of years
+#years_to_process = ['2016','2017','2018','2022preEE','2022postEE','2022','2022EE','2023','2023BPix']
+years_to_process = ['2022', '2022EE', '2023', '2023BPix']
+>>>>>>> 6b99263 (Add/update scripts and DYCore source)
 
 # flashgg input WS objects
 inputWSName__ = "tagsDumper/cms_hgg_13TeV"

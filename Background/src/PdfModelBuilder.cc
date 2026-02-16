@@ -8,6 +8,7 @@
 #include "RooExponential.h"
 #include "../interface/RooPowerLaw.h"
 #include "../interface/RooPowerLawSum.h"
+#include "RooDYCore.h"
 #include "RooKeysPdf.h"
 #include "RooAddPdf.h"
 #include "RooDataHist.h"
@@ -17,6 +18,8 @@
 #include "RooConstVar.h"
 #include "RooFitResult.h"
 #include "RooRandom.h"
+#include "RooRealVar.h"
+#include "RooFormulaVar.h"
 
 #include "boost/algorithm/string/split.hpp"
 #include "boost/algorithm/string/classification.hpp"
@@ -42,9 +45,11 @@ PdfModelBuilder::PdfModelBuilder():
 {
   
   recognisedPdfTypes.push_back("Bernstein");
+  recognisedPdfTypes.push_back("ModBreitWigner");
   recognisedPdfTypes.push_back("Exponential");
   recognisedPdfTypes.push_back("PowerLaw");
   recognisedPdfTypes.push_back("Laurent");
+  recognisedPdfTypes.push_back("DYTheory");
   recognisedPdfTypes.push_back("KeysPdf");
   recognisedPdfTypes.push_back("File");
 
@@ -90,6 +95,50 @@ RooAbsPdf* PdfModelBuilder::getChebychev(string prefix, int order){
   //bkgPdfs.insert(pair<string,RooAbsPdf*>(bern->GetName(),bern));
 
 }
+
+
+RooAbsPdf* PdfModelBuilder::getModBreitWigner(string prefix) {
+    // fixed parameter Z mass and width
+    RooRealVar* mZ = new RooRealVar(Form("%s_mZ", prefix.c_str()), "Z mass", 91.1876);
+    mZ->setConstant(true);  // fixed
+    
+    RooRealVar* gammaZ = new RooRealVar(Form("%s_gammaZ", prefix.c_str()), "Z width", 2.4952);
+    gammaZ->setConstant(true);  // fixed
+    
+    // floating parameters
+    RooRealVar* alpha1 = new RooRealVar(Form("%s_alpha1", prefix.c_str()), "Shape exponent", 
+                                        2.0,  // ini
+                                        1.5,  // min
+                                        3.0); // max
+    
+    // floating parameters
+    RooRealVar* alpha2 = new RooRealVar(Form("%s_alpha2", prefix.c_str()), "Linear exponent", 
+                                        0.0,   // ini
+                                        -0.1,  // min
+                                        0.1);  // max
+    
+    // floating parameters
+    RooRealVar* alpha3 = new RooRealVar(Form("%s_alpha3", prefix.c_str()), "Quadratic exponent", 
+                                        0.0,     // ini
+                                        -0.01,   // min
+                                        0.01);   // max
+    
+    // store floating
+    params.insert({alpha1->GetName(), alpha1});
+    params.insert({alpha2->GetName(), alpha2});
+    params.insert({alpha3->GetName(), alpha3});
+    
+    // math
+    std::string formula_str = "exp(@3*@0 + @4*@0*@0) / "
+                             "(pow(fabs(@0 - @1), @2) + pow(@5/2.0, @2))";
+    
+    //PDF
+    return new RooGenericPdf(prefix.c_str(), "Modified Breit-Wigner",
+                             formula_str.c_str(),
+                             RooArgList(*obs_var, *mZ, *alpha1, *alpha2, *alpha3, *gammaZ));
+}
+
+
 
 RooAbsPdf* PdfModelBuilder::getBernstein(string prefix, int order){
   
@@ -294,6 +343,66 @@ RooAbsPdf* PdfModelBuilder::getLaurentSeries(string prefix, int order){
   //bkgPdfs.insert(pair<string,RooAbsPdf*>(pdf->GetName(),pdf));
 }
 
+RooAbsPdf* PdfModelBuilder::getDYTheory(string prefix, int empOrder)
+{
+  // --- DY core raw ---
+  RooAbsReal* dyCoreRaw =
+    new RooDYCore(Form("%s_core_raw", prefix.c_str()),
+                  "DY core raw",
+                  *obs_var);
+
+  // --- normalize DY core to shape-only ---
+  RooAbsReal* dyCoreInt = dyCoreRaw->createIntegral(*obs_var);
+
+  RooAbsReal* dyCoreNorm =
+    new RooFormulaVar(Form("%s_core_norm", prefix.c_str()),
+                      "@0/@1",
+                      RooArgList(*dyCoreRaw, *dyCoreInt));
+
+  // --- argument list ---
+  RooArgList args;
+  args.add(*dyCoreNorm);  // @0 = normalized DYCore(m)
+  args.add(*obs_var);     // @1 = m
+
+  // --- mhat in [-1,1] ---
+  const double mMin = obs_var->getMin();
+  const double mMax = obs_var->getMax();
+  string mhat =
+    Form("(2*@1-(%g+%g))/(%g-%g)", mMax, mMin, mMax, mMin);
+
+  // --- build formula ---
+  string formula = "@0*exp(";
+
+  for(int i = 1; i <= empOrder; i++){
+    string name = Form("%s_a%d", prefix.c_str(), i);
+
+    RooRealVar* ai =
+      new RooRealVar(name.c_str(), name.c_str(), 0., -1., 1.);
+    params.insert({name, ai});
+    args.add(*ai);   // a_i start from @2
+
+    if(i > 1) formula += "+";
+
+    formula += Form("@%d*cos(%d*acos(%s))",
+                    args.getSize() - 1,
+                    i,
+                    mhat.c_str());
+  }
+
+  formula += ")";
+
+  return new RooGenericPdf(
+    prefix.c_str(),
+    "DY theory ¡Á empirical (shape-only core, no a0)",
+    formula.c_str(),
+    args
+  );
+}
+
+
+
+
+
 RooAbsPdf* PdfModelBuilder::getKeysPdf(string prefix){
   if (!keysPdfAttributesSet){
     cerr << "ERROR -- keysPdf attributes not set" << endl;
@@ -386,8 +495,12 @@ void PdfModelBuilder::addBkgPdf(string type, int nParams, string name, bool cach
 
   if (type=="Bernstein") pdf = getBernstein(name,nParams);
   if (type=="Exponential") pdf = getExponentialSingle(name,nParams);
+  if (type == "ModBreitWigner") {
+    pdf = getModBreitWigner(name);
+  }
   if (type=="PowerLaw") pdf = getPowerLawSingle(name,nParams);
   if (type=="Laurent") pdf = getLaurentSeries(name,nParams);
+  if (type=="DYTheory") pdf = getDYTheory(name,nParams);
   if (type=="KeysPdf") pdf = getKeysPdf(name);
   if (type=="File") pdf = getPdfFromFile(name);
 

@@ -42,7 +42,7 @@ if opt.inputConfig != '':
     options['inputWSDir']   = _cfg['inputWSDir']
     options['procs']        = _cfg['procs']
     options['cats']         = _cfg['cats']
-    options['ext']          = _cfg['ext']
+    options['ext']          = _cfg['ext'] 
     options['analysis']     = _cfg['analysis']
     options['year']         = _cfg['year']
     options['massPoints']   = _cfg['massPoints']
@@ -52,12 +52,14 @@ if opt.inputConfig != '':
     options['smears']       = _cfg['smears']
     options['batch']        = _cfg['batch']
     options['queue']        = _cfg['queue']
+#    options['systematics']  = _cfg['systematics']
     # Options from command line
     options['mode']                    = opt.mode
     options['modeOpts']                = opt.modeOpts
     options['jobOpts']                 = opt.jobOpts
     options['groupSignalFitJobsByCat'] = opt.groupSignalFitJobsByCat
     options['printOnly']               = opt.printOnly
+#    options['systematics']             = opt.systematics
   
     #Delete copy of file
     os.system("rm config.py")
@@ -81,7 +83,9 @@ if options['mode'] not in ['fTest','getDiagProc','calcPhotonSyst','signalFit']:
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Extract list of filenames
 WSFileNames = extractWSFileNames(options['inputWSDir'])
-if not WSFileNames: leave()
+if not WSFileNames:
+  print(f"[ERROR] No .root files found in inputWSDir = {options['inputWSDir']}. Check path and try again.")
+  leave()
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # If proc/cat == auto. Extract processes and categories

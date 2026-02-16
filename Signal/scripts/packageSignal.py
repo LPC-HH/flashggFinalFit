@@ -11,7 +11,7 @@ def get_options():
   parser.add_option("--cat", dest='cat', default='RECO_0J_PTH_0_10_Tag0', help="RECO category to package")
   parser.add_option("--exts", dest='exts', default='', help="Comma separate list of extensions")
   parser.add_option("--outputExt", dest='outputExt', default='packaged', help="Output extension")
-  parser.add_option("--massPoints", dest='massPoints', default='120,125,130', help="Comma separated list of mass points")
+  parser.add_option("--massPoints", dest='massPoints', default='125', help="Comma separated list of mass points") 
   parser.add_option("--mergeYears", dest='mergeYears', default=False, action="store_true", help="Merge specified categories across years")
   parser.add_option("--year", dest="year", default="2016", help="If not merging, then specify year for output file name")
   return parser.parse_args()
@@ -36,8 +36,33 @@ packagedWS.imp = getattr(packagedWS,"import")
 # Extract merged datasets
 data_merged = {}
 data_merged_names = []
+
+
 for mp in opt.massPoints.split(","): 
+<<<<<<< HEAD
   print("fNames; ", fNames)
+=======
+
+  file_path = fNames[opt.exts.split(",")[0]][0]
+  print(f"Opening ROOT file: {file_path}")
+  f = ROOT.TFile(file_path)
+
+  if not f or f.IsZombie():
+      print("ERROR: Could not open ROOT file.")
+      sys.exit(1)
+
+  ws = f.Get("wsig_13TeV")
+  if not ws:
+      print("ERROR: Could not get workspace 'wsig_13TeV'")
+      sys.exit(1)
+
+  data_name = "sig_mass_m%s_%s"%(mp,opt.cat)
+  d = ws.data(data_name)
+  if not d:
+      print(f"ERROR: Could not get dataset '{data_name}' from workspace")
+      sys.exit(1)
+
+>>>>>>> 6b99263 (Add/update scripts and DYCore source)
   data_merged["m%s"%mp] = ROOT.TFile(fNames[opt.exts.split(",")[0]][0]).Get("wsig_13TeV").data("sig_mass_m%s_%s"%(mp,opt.cat)).emptyClone("sig_mass_m%s_%s"%(mp,opt.cat))
   data_merged_names.append( data_merged["m%s"%mp].GetName() )
 

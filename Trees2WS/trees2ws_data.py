@@ -41,7 +41,7 @@ def add_vars_to_workspace(_ws=None,_dataVars=None):
   getattr(_ws,'import')(intLumi)
   _vars = od()
   for var in _dataVars:
-    if var == "CMS_hgg_mass":
+    if var == "dimuon_mass":
       _vars[var] = ROOT.RooRealVar(var,var,125.,100.,180.)
       _vars[var].setBins(160)
     elif var == "dZ":
@@ -131,7 +131,7 @@ for cat in cats:
   # Loop over events in tree and add to dataset with weight 1
   for ev in t:
     if opt.applyMassCut:
-      if(getattr(ev,"CMS_hgg_mass") < float(opt.massCutRange.split(",")[0])) | (getattr(ev,"CMS_hgg_mass") > float(opt.massCutRange.split(",")[1])): continue
+      if(getattr(ev,"dimuon_mass") < float(opt.massCutRange.split(",")[0])) | (getattr(ev,"dimuon_mass") > float(opt.massCutRange.split(",")[1])): continue
     for var in dataVars: 
       if var == "weight": continue
       ws.var(var).setVal(getattr(ev,var))

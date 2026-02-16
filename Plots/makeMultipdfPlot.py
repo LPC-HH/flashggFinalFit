@@ -2,6 +2,11 @@ import os, sys
 import re
 from optparse import OptionParser
 import ROOT
+
+ROOT.gSystem.Load("/home/zguo/Finalfit/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/DYCore/lib/libDYCore.so")
+print(ROOT.RooMultiPdf.Class())
+print(ROOT.RooPowerLaw.Class())
+
 import pandas as pd
 import numpy as np
 import glob
@@ -22,7 +27,11 @@ def get_options():
   parser.add_option("--doZeroes", dest="doZeroes", default=False, action="store_true", help="Add error of unity to zero bins to show on plot")
   parser.add_option("--ext", dest="ext", default='', help="Extension for saving")
   parser.add_option("--mass", dest="mass", default=125.38, help="Higgs mass")
+<<<<<<< HEAD
   parser.add_option("--xvar", dest="xvar", default="CMS_hgg_mass,m_{#mu#mu},GeV", help="X-variable: name,title,units")
+=======
+  parser.add_option("--xvar", dest="xvar", default="dimuon_mass,m_{#gamma#gamma},GeV", help="X-variable: name,title,units")
+>>>>>>> 6b99263 (Add/update scripts and DYCore source)
   parser.add_option("--nBins", dest="nBins", default=80, type='int', help="Number of bins")
   parser.add_option("--pdfNBins", dest="pdfNBins", default=3200, type='int', help="Number of bins")
   parser.add_option("--translateCats", dest="translateCats", default=None, help="JSON to store cat translations")
@@ -51,9 +60,27 @@ multipdf = w.pdf("CMS_hgg_%s_13TeV_bkgshape"%opt.cat)
 pdfindex_bf = w.cat("pdfindex_%s_13TeV"%opt.cat).getIndex()
 bpdf_bf_name = None
 bpdfs = od()
+#for ipdf in range(multipdf.getNumPdfs()): 
+#  bpdfs[multipdf.getPdf(ipdf).GetName()] = w.pdf(multipdf.getPdf(ipdf).GetName())
+#  if ipdf == pdfindex_bf: bpdf_bf_name = multipdf.getPdf(ipdf).GetName()
+ 
+
 for ipdf in range(multipdf.getNumPdfs()): 
-  bpdfs[multipdf.getPdf(ipdf).GetName()] = w.pdf(multipdf.getPdf(ipdf).GetName())
-  if ipdf == pdfindex_bf: bpdf_bf_name = multipdf.getPdf(ipdf).GetName()
+  name = multipdf.getPdf(ipdf).GetName()
+
+  if not ("_exp5" in name or "_dyt" in name or "_mBW" in name):
+    continue
+
+  bpdfs[name] = w.pdf(name)
+
+  if ipdf == pdfindex_bf:
+    bpdf_bf_name = name
+ 
+ 
+  
+print("All background PDFs:")
+for k in bpdfs.keys(): print("  ", k)
+
 
 # Make histograms from bpdfs and scale by norm
 norm = w.var("CMS_hgg_%s_13TeV_bkgshape_norm"%opt.cat).getVal()
@@ -122,7 +149,16 @@ if opt.inputSignalWSFile is not None:
       _id = "%s_%s_%s_%s"%(proc,year,cat,sqrts__)
       norms[k] = wsig.function("%s_%s_normThisLumi"%(outputWSObjectTitle__,_id))
 
+      print("Trying to get pdf:", "%s_%s" % (outputWSObjectTitle__, _id))
+      
       pdf = wsig.pdf("%s_%s"%(outputWSObjectTitle__,_id))
+      
+      if not pdf:
+          break
+          print("Available pdfs in workspace:")
+          for p in wsig.allPdfs():
+              print(" ", p.GetName())
+      
       spdfs[_id] = pdf.createHistogram("h_pdf_%s"%_id,xvar,ROOT.RooFit.Binning(opt.pdfNBins))
       spdfs[_id].Scale(norms[k].getVal()*(float(opt.pdfNBins)/float(opt.nBins)))
 
@@ -207,6 +243,8 @@ for bname in bpdfs:
   elif "exp" in bname: fname = "#bf{Sum of exponentials}"
   elif "pow" in bname: fname = "#bf{Sum of power law functions}"
   elif "lau" in bname: fname = "#bf{Laurent series}"
+  elif "mBW" in bname: fname = "#bf{modified Breit Wigner funciton}"
+  elif "dyt" in bname: fname = "#bf{DY Theory core with empirical function}"
   else: fname = "Unknown function"
   if bname == bpdf_bf_name: lstr = "#splitline{%s}{Order %s (Best fit)}"%(fname,bname[-1])
   else: lstr = "#splitline{%s}{Order %s}"%(fname,bname[-1])
@@ -221,7 +259,7 @@ if doSignal:
   hists['spdf'].GetXaxis().SetRangeUser(blindingRegion[0],blindingRegion[1])
   hists['spdf'].Draw("Hist same cf")
 
-colourOptions=[1,2,3,4,5,6,7,8,9]
+colourOptions=[2,3,4,5,6,7,28,38,29,1]
 bnames = list(bpdfs.keys())
 for bidx, bname in enumerate(bnames):
   hists[bname].SetLineWidth(2)

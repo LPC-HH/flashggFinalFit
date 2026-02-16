@@ -54,11 +54,11 @@ namespace po = program_options;
 
 bool BLIND = true;
 bool runFtestCheckWithToys=false;
-int mgg_low =100;
-int mgg_high =180;
+int mgg_low =110;
+int mgg_high =150;
 int nBinsForMass = 4*(mgg_high-mgg_low);
 
-RooRealVar *intLumi_ = new RooRealVar("IntLumi","hacked int lumi", 1000.);
+RooRealVar *intLumi_ = new RooRealVar("IntLumi","hacked int lumi", 58.9);
 
 TRandom3 *RandomGen = new TRandom3();
 
@@ -69,6 +69,10 @@ RooAbsPdf* getPdf(PdfModelBuilder &pdfsModel, string type, int order, const char
   else if (type=="Exponential") return pdfsModel.getExponentialSingle(Form("%s_exp%d",ext,order),order); 
   else if (type=="PowerLaw") return pdfsModel.getPowerLawSingle(Form("%s_pow%d",ext,order),order); 
   else if (type=="Laurent") return pdfsModel.getLaurentSeries(Form("%s_lau%d",ext,order),order); 
+  else if (type=="ModBreitWigner") {
+    return pdfsModel.getModBreitWigner(Form("%s_mBW2", ext));
+  }
+  else if (type=="DYTheory") return pdfsModel.getDYTheory(Form("%s_dyt%d",ext,order),order); 
   else {
     cerr << "[ERROR] -- getPdf() -- type " << type << " not recognised." << endl;
     return NULL;
@@ -306,7 +310,7 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooDataSet *data, std
 void plot(RooRealVar *mass, RooAbsPdf *pdf, RooDataSet *data, string name,vector<string> flashggCats_, int status, double *prob){
   
   // Chi2 taken from full range fit
-  RooPlot *plot_chi2 = mass->frame();
+  RooPlot *plot_chi2 = mass->frame(Range(mgg_low,mgg_high));
   data->plotOn(plot_chi2,Binning(nBinsForMass));
   pdf->plotOn(plot_chi2);
 
@@ -314,15 +318,15 @@ void plot(RooRealVar *mass, RooAbsPdf *pdf, RooDataSet *data, string name,vector
   double chi2 = plot_chi2->chiSquare(np);
  
   *prob = getGoodnessOfFit(mass,pdf,data,name);
-  RooPlot *plot = mass->frame();
+  RooPlot *plot = mass->frame(Range(mgg_low,mgg_high));
   mass->setRange("unblindReg_1",mgg_low,115);
   mass->setRange("unblindReg_2",135,mgg_high);
   if (BLIND) {
-    data->plotOn(plot,Binning(mgg_high-mgg_low),CutRange("unblindReg_1"));
-    data->plotOn(plot,Binning(mgg_high-mgg_low),CutRange("unblindReg_2"));
-    data->plotOn(plot,Binning(mgg_high-mgg_low),Invisible());
+    data->plotOn(plot,Binning((mgg_high-mgg_low)*2),CutRange("unblindReg_1"));
+    data->plotOn(plot,Binning((mgg_high-mgg_low)*2),CutRange("unblindReg_2"));
+    data->plotOn(plot,Binning((mgg_high-mgg_low)*2),Invisible());
   }
-  else data->plotOn(plot,Binning(mgg_high-mgg_low));
+  else data->plotOn(plot,Binning((mgg_high-mgg_low)*2));
 
  // data->plotOn(plot,Binning(mgg_high-mgg_low));
   TCanvas *canv = new TCanvas();
@@ -349,16 +353,16 @@ void plot(RooRealVar *mass, RooMultiPdf *pdfs, RooCategory *catIndex, RooDataSet
   TLegend *leg = new TLegend(0.5,0.55,0.92,0.88);
   leg->SetFillColor(0);
   leg->SetLineColor(1);
-  RooPlot *plot = mass->frame();
+  RooPlot *plot = mass->frame(Range(mgg_low,mgg_high));
 
   mass->setRange("unblindReg_1",mgg_low,115);
   mass->setRange("unblindReg_2",135,mgg_high);
   if (BLIND) {
-    data->plotOn(plot,Binning(mgg_high-mgg_low),CutRange("unblindReg_1"));
-    data->plotOn(plot,Binning(mgg_high-mgg_low),CutRange("unblindReg_2"));
-    data->plotOn(plot,Binning(mgg_high-mgg_low),Invisible());
+    data->plotOn(plot,Binning((mgg_high-mgg_low)*2),CutRange("unblindReg_1"));
+    data->plotOn(plot,Binning((mgg_high-mgg_low)*2),CutRange("unblindReg_2"));
+    data->plotOn(plot,Binning((mgg_high-mgg_low)*2),Invisible());
   }
-  else data->plotOn(plot,Binning(mgg_high-mgg_low)); 
+  else data->plotOn(plot,Binning((mgg_high-mgg_low)*2)); 
   TCanvas *canv = new TCanvas();
   ///start extra bit for ratio plot///
   RooHist *plotdata = (RooHist*)plot->getObject(plot->numItems()-1);
@@ -432,8 +436,10 @@ void plot(RooRealVar *mass, RooMultiPdf *pdfs, RooCategory *catIndex, RooDataSet
   } 
   pad2->cd();
   TH1 *hdummy = new TH1D("hdummyweight","",mgg_high-mgg_low,mgg_low,mgg_high);
-  hdummy->SetMaximum(hdatasub->GetHistogram()->GetMaximum()+1);
-  hdummy->SetMinimum(hdatasub->GetHistogram()->GetMinimum()-1);
+//  hdummy->SetMaximum(hdatasub->GetHistogram()->GetMaximum()+1);
+//  hdummy->SetMinimum(hdatasub->GetHistogram()->GetMinimum()-1);
+  hdummy->SetMinimum(-1000);
+  hdummy->SetMaximum(1000);
   hdummy->GetYaxis()->SetTitle("data - best fit PDF");
   hdummy->GetYaxis()->SetTitleSize(0.12);
   hdummy->GetXaxis()->SetTitle("m_{#gamma#gamma} (GeV)");
@@ -461,16 +467,16 @@ void plot(RooRealVar *mass, map<string,RooAbsPdf*> pdfs, RooDataSet *data, strin
   TLegend *leg = new TLegend(0.6,0.65,0.88,0.88);
   leg->SetFillColor(0);
   leg->SetLineColor(0);
-  RooPlot *plot = mass->frame();
+  RooPlot *plot = mass->frame(Range(mgg_low,mgg_high));
 
   mass->setRange("unblindReg_1",mgg_low,115);
   mass->setRange("unblindReg_2",135,mgg_high);
   if (BLIND) {
-    data->plotOn(plot,Binning(mgg_high-mgg_low),CutRange("unblindReg_1"));
-    data->plotOn(plot,Binning(mgg_high-mgg_low),CutRange("unblindReg_2"));
-    data->plotOn(plot,Binning(mgg_high-mgg_low),Invisible());
+    data->plotOn(plot,Binning((mgg_high-mgg_low)*2),CutRange("unblindReg_1"));
+    data->plotOn(plot,Binning((mgg_high-mgg_low)*2),CutRange("unblindReg_2"));
+    data->plotOn(plot,Binning((mgg_high-mgg_low)*2),Invisible());
   }
-  else data->plotOn(plot,Binning(mgg_high-mgg_low));
+  else data->plotOn(plot,Binning((mgg_high-mgg_low)*2));
 
   TObject *datLeg = plot->getObject(int(plot->numItems()-1));
 	if(flashggCats_.size() >0){
@@ -587,6 +593,13 @@ int getBestFitFunction(RooMultiPdf *bkg, RooDataSet *data, RooCategory *cat, boo
 		std::cout << "[INFO] Best fit Function -- " << bkg->getCurrentPdf()->GetName() << " " << cat->getIndex() <<std::endl;
 		//bkg->getCurrentPdf()->getParameters(*data)->Print("v");
 	}
+ 
+  std::cout << "PDF = " << bkg->getCurrentPdf()->GetName()
+          << "  NLL = " << global_minNll  - bkg->getCorrection()
+          << "  correction = " << bkg->getCorrection()
+          << "  penalized = " << global_minNll  
+          << std::endl;  
+ 
 	return best_index;
 }
 
@@ -716,11 +729,15 @@ int main(int argc, char* argv[]){
 	functionClasses.push_back("Exponential");
 	functionClasses.push_back("PowerLaw");
 	functionClasses.push_back("Laurent");
+  functionClasses.push_back("DYTheory");
+  functionClasses.push_back("ModBreitWigner");
 	map<string,string> namingMap;
 	namingMap.insert(pair<string,string>("Bernstein","pol"));
 	namingMap.insert(pair<string,string>("Exponential","exp"));
 	namingMap.insert(pair<string,string>("PowerLaw","pow"));
 	namingMap.insert(pair<string,string>("Laurent","lau"));
+  namingMap.insert(pair<string,string>("DYTheory","dyt"));
+  namingMap.insert(pair<string,string>("ModBreitWigner","mBW"));
 
 	// store results here
 
@@ -732,7 +749,19 @@ int main(int argc, char* argv[]){
 	vector<map<string,RooAbsPdf*> > pdfs_vec;
 
 	PdfModelBuilder pdfsModel;
-	RooRealVar *mass = (RooRealVar*)inWS->var("CMS_hgg_mass");
+ 
+  std::string observable = "dimuon_mass";
+ 
+  std::cout << "[DEBUG] Trying to get variable: " << observable << std::endl;
+  inWS->Print("v");
+ 
+	RooRealVar *mass = (RooRealVar*)inWS->var("dimuon_mass");
+ 
+  if (!mass) {
+    std::cerr << "[ERROR] Variable " << observable << " not found in workspace!" << std::endl;
+    return 1;
+  } 
+ 
 	std:: cout << "[INFO] Got mass from ws " << mass << std::endl;
 	pdfsModel.setObsVar(mass);
 	double upperEnvThreshold = 0.1; // upper threshold on delta(chi2) to include function in envelope (looser than truth function)
@@ -783,7 +812,6 @@ int main(int argc, char* argv[]){
 		if (verbose) std::cout << "[INFO] opened data for  "  << Form("data_mass_%s",catname.c_str()) <<" - " << dataFull <<std::endl;
     }
 
-
 		mass->setBins(nBinsForMass);
 		RooDataSet *data;
 		//	RooDataHist thisdataBinned(Form("roohist_data_mass_cat%d",cat),"data",*mass,*dataFull);
@@ -815,7 +843,68 @@ int main(int argc, char* argv[]){
 		// Standard F-Test to find the truth functions
 		for (vector<string>::iterator funcType=functionClasses.begin(); 
 				funcType!=functionClasses.end(); funcType++){
-
+        
+/////////////////////////////////////////////////////////////////////////////  
+        if (*funcType == "ModBreitWigner") {
+          std::vector<int> pdforders;  // pdforders
+          int fixedOrder = 2;
+    
+          RooAbsPdf *bkgPdf = getPdf(pdfsModel, *funcType, fixedOrder, 
+                      Form("env_pdf_%d_%s", (cat+catOffset), ext.c_str()));
+    
+          
+              int fitStatus = 0;
+              double thisNll = 0;
+              runFit(bkgPdf, data, &thisNll, &fitStatus, 3);
+              
+       /////////////////////////////////////////// 
+              // output (no ftest)
+              fprintf(resFile, "%15s & %d & %5.2f & %5.2f \\\\\n", 
+                      funcType->c_str(), fixedOrder, 0.0, 1.0);
+        
+              // store result
+              choices.insert({*funcType, fixedOrder});  // order seen as 0
+              pdfs.insert({Form("%s%d", funcType->c_str(), fixedOrder), bkgPdf});  // name like "ModBreitWigner0"
+              
+              // visualization
+        
+              double gofProb = 0;
+              plot(mass, bkgPdf, data, 
+              Form("%s/%s%d_cat%d.pdf", outDir.c_str(), funcType->c_str(), fixedOrder, (cat+catOffset)),
+              flashggCats_, fitStatus, &gofProb);
+              
+       /////////////////////////////////////////// 
+       
+              // add
+              allPdfs.insert(pair<string, RooAbsPdf*>(
+                  Form("%s%d", funcType->c_str(), fixedOrder), bkgPdf));
+              storedPdfs.add(*bkgPdf);
+              pdforders.push_back(fixedOrder);
+        
+              // renew pdf index
+              double myNll = 2 * thisNll;
+              if ((myNll + bkgPdf->getVariables()->getSize()) < MinimimNLLSoFar) {
+                  simplebestFitPdfIndex = storedPdfs.getSize()-1;
+                  MinimimNLLSoFar = myNll + bkgPdf->getVariables()->getSize();
+              }
+        
+              std::cout << "[FORCE] Added ModBreitWigner to envelope (order=" << fixedOrder << ")\n";
+        
+              // add debug
+              std::cout << "[DEBUG] Stored PDFs count: " << storedPdfs.getSize() << std::endl;
+              std::cout << "[DEBUG] Current PDFs: ";
+              storedPdfs.Print();
+          
+    
+          // solve conflict
+//          if (outputws->obj("roohist_data_mass_NOTAG")) {
+//            outputws->removeSet("roohist_data_mass_NOTAG"); 
+//            std::cout << "[FIX] Removed duplicate dataset\n";
+//          }
+    
+          continue;  // skip higher order
+      }
+/////////////////////////////////////////////////////////////////////////////
 			double thisNll=0.; double prevNll=0.; double chi2=0.; double prob=0.; 
 			int order=1; int prev_order=0; int cache_order=0;
 
@@ -825,7 +914,7 @@ int main(int argc, char* argv[]){
 
 			int counter =0;
 			//	while (prob<0.05){
-			while (prob<0.05 && order < 7){ //FIXME
+			while (prob<0.05 && order < 5){ //FIXME
 				RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,order,Form("ftest_pdf_%d_%s",(cat+catOffset),ext.c_str()));
 				if (!bkgPdf){
 					// assume this order is not allowed
@@ -881,12 +970,38 @@ int main(int argc, char* argv[]){
 				cache_order=0;
 				std::cout << "[INFO] Determining Envelope Functions for Family " << *funcType << ", cat " << cat << std::endl;
 				std::cout << "[INFO] Upper end Threshold for highest order function " << upperEnvThreshold <<std::endl;
+////////////////////////////////////////////////////////////////
+
+        if (*funcType == "ModBreitWigner") {
+            RooAbsPdf *bkgPdf = getPdf(pdfsModel, *funcType, 0, 
+                        Form("env_pdf_%d_%s", (cat+catOffset), ext.c_str()));
+        
+            if (bkgPdf) {
+                int fitStatus = 0;
+                double thisNll = 0;
+                runFit(bkgPdf, data, &thisNll, &fitStatus, 3);
+            
+                
+//                double gofProb = 1.0; 
+            
+//                if (gofProb > 0.01) {
+                    allPdfs.insert(pair<string, RooAbsPdf*>(
+                        Form("%s0", funcType->c_str()), bkgPdf));
+                    storedPdfs.add(*bkgPdf);
+                    pdforders.push_back(0);
+//                } 
+            }
+            break; 
+        }
 
 				while (prob<upperEnvThreshold){
+          
+          
+///////////////////////////////////////////////////////////////          
 					RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,order,Form("env_pdf_%d_%s",(cat+catOffset),ext.c_str()));
 					if (!bkgPdf ){
 						// assume this order is not allowed
-						if (order >6) { std::cout << " [WARNING] could not add ] " << std::endl; break ;}
+						if (order >=6) { std::cout << " [WARNING] could not add ] " << std::endl; break ;}
 						order++;
 					}
 					else {
@@ -911,8 +1026,16 @@ int main(int argc, char* argv[]){
 
 						if ((prob < upperEnvThreshold) ) { // Looser requirements for the envelope
 
-							if (gofProb > 0.01 || order == truthOrder ) {  // Good looking fit or one of our regular truth functions
+//							if (gofProb > 0.01 || order == truthOrder ) {  // Good looking fit or one of our regular truth functions
+/////////////////////////////////////////////////////////////////
 
+              double threshold = (*funcType == "ModBreitWigner") ? -1 : 0.001; // 物理模型无条件加入
+              if (gofProb > threshold || order == truthOrder) {
+                  std::cout << "[ACCEPT] Adding " << bkgPdf->GetName() 
+                  << " (Type=" << *funcType 
+                  << ", gofProb=" << gofProb << ")" << std::endl;                            
+                            
+/////////////////////////////////////////////////////////////////
 								std::cout << "[INFO] Adding to Envelope " << bkgPdf->GetName() << " "<< gofProb 
 									<< " 2xNLL + c is " << myNll + bkgPdf->getVariables()->getSize() <<  std::endl;
 								allPdfs.insert(pair<string,RooAbsPdf*>(Form("%s%d",funcType->c_str(),order),bkgPdf));
@@ -964,7 +1087,8 @@ int main(int argc, char* argv[]){
 			RooRealVar nBackground(Form("CMS_hgg_%s_%s_bkgshape_norm",catname.c_str(),ext.c_str()),"nbkg",data->sumEntries(),0,3*data->sumEntries());
 			//nBackground.removeRange(); // bug in roofit will break combine until dev branch brought in
 			//double check the best pdf!
-			int bestFitPdfIndex = getBestFitFunction(pdf,data,&catIndex,!verbose);
+//			int bestFitPdfIndex = getBestFitFunction(pdf,data,&catIndex,!verbose);
+      int bestFitPdfIndex = getBestFitFunction(pdf,data,&catIndex,false); 
 			catIndex.setIndex(bestFitPdfIndex);
 			std::cout << "// ------------------------------------------------------------------------- //" <<std::endl; 
 			std::cout << "[INFO] Created MultiPdf " << pdf->GetName() << ", in Category " << cat << " with a total of " << catIndex.numTypes() << " pdfs"<< std::endl;

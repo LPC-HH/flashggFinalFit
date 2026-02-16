@@ -37,3 +37,17 @@ AutoDict_*
 # Output dirs in signal and bkg
 Signal/outdir_*
 Background/outdir_*
+
+# Build and dictionary files
+*/lib/
+*/bin/
+RootDict.cxx
+
+# Workspace/output directories
+wkspace_store/
+Trees2WS/outdir_test/
+Datacard/yields_myfit/
+Background/DYCore/lib/
+
+# Optional DYCore build artifacts
+Background/DYCore/RootDict.cxx

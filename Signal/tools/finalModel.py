@@ -10,6 +10,7 @@ from collections import OrderedDict as od
 from commonObjects import *
 from commonTools import *
 from signalTools import *
+from XSBRMap import *
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   
 # Function to load XS/BR from Combine
@@ -31,15 +32,34 @@ class dummy_options:
     self.funcXSext = "dummy"
 
 # Functions to get XS/BR
+#def getXS(_SM,_MHVar,_mh,_pm):
+#  _MHVar.setVal(_mh)
+#  return _SM.modelBuilder.out.function("SM_XS_%s_%s"%(_pm,sqrts__)).getVal()
+  
+  
 def getXS(_SM,_MHVar,_mh,_pm):
   _MHVar.setVal(_mh)
-  return _SM.modelBuilder.out.function("SM_XS_%s_%s"%(_pm,sqrts__)).getVal()
+  func_name = f"SM_XS_{_pm}_{sqrts__}"
+  print(f"[DEBUG] Trying to retrieve function: {func_name}")
+  f = _SM.modelBuilder.out.function(func_name)
+  if not f:
+      raise RuntimeError(f"[ERROR] Cross-section function {func_name} not found in workspace!")
+  return f.getVal()
+  
+  
+  
 def getBR(_SM,_MHVar,_mh,_dm):
+
+  print("==== Listing all functions in SM.modelBuilder.out ====")
+  for f in _SM.modelBuilder.out.allFunctions():
+      print(f.GetName())
+      
   _MHVar.setVal(_mh)
   return _SM.modelBuilder.out.function("SM_BR_%s"%_dm).getVal()
 
 # Function to initialise XS values from combine
 def initialiseXSBR():
+  print("\n[DEBUG] Initializing XSBR...")
   options=dummy_options()
   DC = Datacard()
   MB = ModelBuilder(DC, options)
@@ -49,16 +69,44 @@ def initialiseXSBR():
   MB.physics.doParametersOfInterest()
   SM = SMHiggsBuilder(MB)
   MHVar = SM.modelBuilder.out.var("MH")
+  
+  if not MHVar:
+        print("[ERROR] MH variable not found in workspace!")
+        
+  print("[DEBUG] Available functions before makeBR/makeXS:")
+  for func in SM.modelBuilder.out.allFunctions():
+      print(f"  - {func.GetName()}")
 
   # Make XS and BR
   SM.makeBR(decayMode)
-  for pm in productionModes: SM.makeXS(pm,sqrts__)
+  for pm in productionModes: 
+        print(f"[DEBUG] Creating XS for {pm}")
+        SM.makeXS(pm, sqrts__)
+        
+        
+  print("[DEBUG] Available functions after makeBR/makeXS:")
+  for func in SM.modelBuilder.out.allFunctions():
+      print(f"  - {func.GetName()}")
+        
 
   # Store numpy arrays for each production mode in ordered dict
   xsbr = od()
   for pm in productionModes: xsbr[pm] = []
   xsbr[decayMode] = []
   xsbr['constant'] = []
+
+#  dataset_key = 'tutorial'  
+#  pm_config = globalXSBRMap[dataset_key]
+
+#  xsbr = od()
+#  for ext_pm in pm_config:
+#      if ext_pm == 'decay':
+#          continue
+#      xsbr[ext_pm] = []
+#  xsbr[pm_config['decay']['mode']] = []
+#  xsbr['constant'] = []
+
+
   mh = 120.
   while( mh < 130.05 ):
     for pm in productionModes: xsbr[pm].append(getXS(SM,MHVar,mh,pm))
@@ -113,7 +161,18 @@ class FinalModel:
     self.Pdfs = od()
     self.Datasets = od()
     # Build XS/BR/EA splines
+    
+    #added by Zhengliang 
+    print(f"[DEBUG] Constructing SMHiggsBuilder with sqrts={_sqrts}, massPoints={_massPoints}")
+#    self.SM = SMHiggsBuilder(self.out, _sqrts, _MH, self.MHLow, self.MHHigh, 
+#                            _massPoints, self.xsbrMap, self.doVoigtian)
+#    print("[DEBUG] Created SMHiggsBuilder")
+#    self.SM.prepare()
+    print("[DEBUG] SMHiggsBuilder prepared")
+    
+    
     self.XSBR = initialiseXSBR() 
+    print("[DEBUG] XSBR initialized")
     self.buildXSBRSplines()
     self.buildEffAccSpline()
     # If not skip systematics: add nuisance params to dict

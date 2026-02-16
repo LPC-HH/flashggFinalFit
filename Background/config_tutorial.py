@@ -4,10 +4,14 @@ import os
 backgroundScriptCfg = {
   
   # Setup
+<<<<<<< HEAD
   # 'inputWS':'PATH_TO_INPUTS/workspaces/data/allData_2022preEE.root', # location of 'allData.root' file
   'inputWS':os.getenv('ROOT_IO') + '/tuples/split_tuples/ggH/ws/allData_combined.root', # location of 'allData.root' file
 #  'inputWS':'/uscms_data/d3/mbarrial/higgsAnalysis/CMSSW_14_0_14/src/HToMuMu/root_io//tuples/split_tuples/ggH/ws/allData_combined.root', # location of 'allData.root' file
 
+=======
+  'inputWS':'/home/zguo/Finalfit/CMSSW_14_1_0_pre4/src/flashggFinalFit/wkspace_store/data/allData.root', # location of 'allData.root' file
+>>>>>>> 6b99263 (Add/update scripts and DYCore source)
   'cats':'auto', # auto: automatically inferred from input ws
   'catOffset':0, # add offset to category numbers (useful for categories from different allData.root files)  
   'ext':'tutorial', # extension to add to output directory
