@@ -89,7 +89,7 @@ def main() -> None:
     ensure_dir(Path("yields_tutorial"))
 
     # --- ggH ---
-    ggh_cats = ["ggHcat1", "ggHcat2", "ggHcat3"]
+    ggh_cats = ["ggHcat1", "ggHcat2", "ggHcat3", "ggHcat4", "ggHcat5", "ggHcat6"]
     ggh_path = f"{root_io}/tuples/split_tuples/ggH/ws_GG2H"
 
     print("---------------------------- ggH -----------------------------------")
@@ -114,7 +114,7 @@ def main() -> None:
     rm_glob("yields_tutorial/*.pkl")
 
     # --- VBF ---
-    vbf_cats = ["VBFcat1", "VBFcat2", "VBFcat3", "VBFcat4"]
+    vbf_cats = ["VBFcat1", "VBFcat2", "VBFcat3", "VBFcat4", "VBFcat5", "VBFcat6"]
     vbf_path = f"{root_io}/tuples/split_tuples/VBF/ws_VBF"
 
     print("---------------------------- VBF -----------------------------------")

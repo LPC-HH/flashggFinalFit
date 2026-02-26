@@ -33,7 +33,15 @@ AutoDict_*
 *.tmp
 *.pcm
 *.o
+*.csv
+*.pkl
 
 # Output dirs in signal and bkg
 Signal/outdir_*
 Background/outdir_*
+
+# Combine jobs
+Combine/t2w_jobs/*.sh
+
+# Datacard
+Datacard/yields_tutorial/jobs/*.sh
