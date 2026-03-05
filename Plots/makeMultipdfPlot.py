@@ -207,6 +207,8 @@ for bname in bpdfs:
   elif "exp" in bname: fname = "#bf{Sum of exponentials}"
   elif "pow" in bname: fname = "#bf{Sum of power law functions}"
   elif "lau" in bname: fname = "#bf{Laurent series}"
+  elif "mBW" in bname: fname = "#bf{modified Breit Wigner funciton}"
+  elif "dyt" in bname: fname = "#bf{DY Theory core with empirical function}"
   else: fname = "Unknown function"
   if bname == bpdf_bf_name: lstr = "#splitline{%s}{Order %s (Best fit)}"%(fname,bname[-1])
   else: lstr = "#splitline{%s}{Order %s}"%(fname,bname[-1])
@@ -221,7 +223,7 @@ if doSignal:
   hists['spdf'].GetXaxis().SetRangeUser(blindingRegion[0],blindingRegion[1])
   hists['spdf'].Draw("Hist same cf")
 
-colourOptions=[1,2,3,4,5,6,7,8,9]
+colourOptions=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 bnames = list(bpdfs.keys())
 for bidx, bname in enumerate(bnames):
   hists[bname].SetLineWidth(2)

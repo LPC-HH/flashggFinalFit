@@ -69,6 +69,10 @@ RooAbsPdf* getPdf(PdfModelBuilder &pdfsModel, string type, int order, const char
   else if (type=="Exponential") return pdfsModel.getExponentialSingle(Form("%s_exp%d",ext,order),order); 
   else if (type=="PowerLaw") return pdfsModel.getPowerLawSingle(Form("%s_pow%d",ext,order),order); 
   else if (type=="Laurent") return pdfsModel.getLaurentSeries(Form("%s_lau%d",ext,order),order); 
+  else if (type=="ModBreitWigner") {
+    return pdfsModel.getModBreitWigner(Form("%s_mBW2", ext));
+  }
+  else if (type=="DYTheory") return pdfsModel.getDYTheory(Form("%s_dyt%d",ext,order),order); 
   else {
     cerr << "[ERROR] -- getPdf() -- type " << type << " not recognised." << endl;
     return NULL;
@@ -587,6 +591,13 @@ int getBestFitFunction(RooMultiPdf *bkg, RooDataSet *data, RooCategory *cat, boo
 		std::cout << "[INFO] Best fit Function -- " << bkg->getCurrentPdf()->GetName() << " " << cat->getIndex() <<std::endl;
 		//bkg->getCurrentPdf()->getParameters(*data)->Print("v");
 	}
+ 
+  std::cout << "PDF = " << bkg->getCurrentPdf()->GetName()
+          << "  NLL = " << global_minNll  - bkg->getCorrection()
+          << "  correction = " << bkg->getCorrection()
+          << "  penalized = " << global_minNll  
+          << std::endl;   
+ 
 	return best_index;
 }
 
@@ -716,11 +727,15 @@ int main(int argc, char* argv[]){
 	functionClasses.push_back("Exponential");
 	functionClasses.push_back("PowerLaw");
 	functionClasses.push_back("Laurent");
+  functionClasses.push_back("DYTheory");
+  functionClasses.push_back("ModBreitWigner");
 	map<string,string> namingMap;
 	namingMap.insert(pair<string,string>("Bernstein","pol"));
 	namingMap.insert(pair<string,string>("Exponential","exp"));
 	namingMap.insert(pair<string,string>("PowerLaw","pow"));
 	namingMap.insert(pair<string,string>("Laurent","lau"));
+  namingMap.insert(pair<string,string>("DYTheory","dyt"));
+  namingMap.insert(pair<string,string>("ModBreitWigner","mBW"));
 
 	// store results here
 
@@ -815,6 +830,68 @@ int main(int argc, char* argv[]){
 		// Standard F-Test to find the truth functions
 		for (vector<string>::iterator funcType=functionClasses.begin(); 
 				funcType!=functionClasses.end(); funcType++){
+        
+/////////////////////////////////////////////////////////////////////////////  
+        if (*funcType == "ModBreitWigner") {
+          std::vector<int> pdforders;  // pdforders
+          int fixedOrder = 3;
+    
+          RooAbsPdf *bkgPdf = getPdf(pdfsModel, *funcType, fixedOrder, 
+                      Form("env_pdf_%d_%s", (cat+catOffset), ext.c_str()));
+    
+          
+              int fitStatus = 0;
+              double thisNll = 0;
+              runFit(bkgPdf, data, &thisNll, &fitStatus, 3);
+              
+       /////////////////////////////////////////// 
+              // output (no ftest)
+              fprintf(resFile, "%15s & %d & %5.2f & %5.2f \\\\\n", 
+                      funcType->c_str(), fixedOrder, 0.0, 1.0);
+        
+              // store result
+              choices.insert({*funcType, fixedOrder});  // order seen as 0
+              pdfs.insert({Form("%s%d", funcType->c_str(), fixedOrder), bkgPdf});  // name like "ModBreitWigner0"
+              
+              // visualization
+        
+              double gofProb = 0;
+              plot(mass, bkgPdf, data, 
+              Form("%s/%s%d_cat%d.pdf", outDir.c_str(), funcType->c_str(), fixedOrder, (cat+catOffset)),
+              flashggCats_, fitStatus, &gofProb);
+              
+       /////////////////////////////////////////// 
+       
+              // add
+              allPdfs.insert(pair<string, RooAbsPdf*>(
+                  Form("%s%d", funcType->c_str(), fixedOrder), bkgPdf));
+              storedPdfs.add(*bkgPdf);
+              pdforders.push_back(fixedOrder);
+        
+              // renew pdf index
+              double myNll = 2 * thisNll;
+              if ((myNll + bkgPdf->getVariables()->getSize()) < MinimimNLLSoFar) {
+                  simplebestFitPdfIndex = storedPdfs.getSize()-1;
+                  MinimimNLLSoFar = myNll + bkgPdf->getVariables()->getSize();
+              }
+        
+              std::cout << "[FORCE] Added ModBreitWigner to envelope (order=" << fixedOrder << ")\n";
+        
+              // add debug
+              std::cout << "[DEBUG] Stored PDFs count: " << storedPdfs.getSize() << std::endl;
+              std::cout << "[DEBUG] Current PDFs: ";
+              storedPdfs.Print();
+          
+    
+          // solve conflict
+//          if (outputws->obj("roohist_data_mass_NOTAG")) {
+//            outputws->removeSet("roohist_data_mass_NOTAG"); 
+//            std::cout << "[FIX] Removed duplicate dataset\n";
+//          }
+    
+          continue;  // skip higher order
+      }
+/////////////////////////////////////////////////////////////////////////////
 
 			double thisNll=0.; double prevNll=0.; double chi2=0.; double prob=0.; 
 			int order=1; int prev_order=0; int cache_order=0;
@@ -825,7 +902,7 @@ int main(int argc, char* argv[]){
 
 			int counter =0;
 			//	while (prob<0.05){
-			while (prob<0.05 && order < 7){ //FIXME
+			while (prob<0.05 && order < 5){ //FIXME
 				RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,order,Form("ftest_pdf_%d_%s",(cat+catOffset),ext.c_str()));
 				if (!bkgPdf){
 					// assume this order is not allowed
@@ -869,6 +946,7 @@ int main(int argc, char* argv[]){
 			pdfs.insert(pair<string,RooAbsPdf*>(Form("%s%d",funcType->c_str(),cache_order),cache_pdf));
 
 			int truthOrder = cache_order;
+//      int truthOrder = order;
 
 			// Now run loop to determine functions inside envelope
 			if (saveMultiPdf){
@@ -881,12 +959,36 @@ int main(int argc, char* argv[]){
 				cache_order=0;
 				std::cout << "[INFO] Determining Envelope Functions for Family " << *funcType << ", cat " << cat << std::endl;
 				std::cout << "[INFO] Upper end Threshold for highest order function " << upperEnvThreshold <<std::endl;
+        
+////////////////////////////////////////////////////////////////
+
+        if (*funcType == "ModBreitWigner") {
+            RooAbsPdf *bkgPdf = getPdf(pdfsModel, *funcType, 0, 
+                        Form("env_pdf_%d_%s", (cat+catOffset), ext.c_str()));
+        
+            if (bkgPdf) {
+                int fitStatus = 0;
+                double thisNll = 0;
+                runFit(bkgPdf, data, &thisNll, &fitStatus, 3);
+            
+                
+//                double gofProb = 1.0; 
+            
+//                if (gofProb > 0.01) {
+                    allPdfs.insert(pair<string, RooAbsPdf*>(
+                        Form("%s0", funcType->c_str()), bkgPdf));
+                    storedPdfs.add(*bkgPdf);
+                    pdforders.push_back(0);
+//                } 
+            }
+            break; 
+        }
 
 				while (prob<upperEnvThreshold){
 					RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,order,Form("env_pdf_%d_%s",(cat+catOffset),ext.c_str()));
 					if (!bkgPdf ){
 						// assume this order is not allowed
-						if (order >6) { std::cout << " [WARNING] could not add ] " << std::endl; break ;}
+						if (order >=6) { std::cout << " [WARNING] could not add ] " << std::endl; break ;}
 						order++;
 					}
 					else {
@@ -911,7 +1013,16 @@ int main(int argc, char* argv[]){
 
 						if ((prob < upperEnvThreshold) ) { // Looser requirements for the envelope
 
-							if (gofProb > 0.01 || order == truthOrder ) {  // Good looking fit or one of our regular truth functions
+//							if (gofProb > 0.01 || order == truthOrder ) {  // Good looking fit or one of our regular truth functions
+/////////////////////////////////////////////////////////////////
+
+              double threshold = (*funcType == "ModBreitWigner") ? -1 : 0.01; 
+              if (gofProb > threshold || order == truthOrder) {
+                  std::cout << "[ACCEPT] Adding " << bkgPdf->GetName() 
+                  << " (Type=" << *funcType 
+                  << ", gofProb=" << gofProb << ")" << std::endl;                            
+                            
+/////////////////////////////////////////////////////////////////
 
 								std::cout << "[INFO] Adding to Envelope " << bkgPdf->GetName() << " "<< gofProb 
 									<< " 2xNLL + c is " << myNll + bkgPdf->getVariables()->getSize() <<  std::endl;
@@ -964,7 +1075,8 @@ int main(int argc, char* argv[]){
 			RooRealVar nBackground(Form("CMS_hgg_%s_%s_bkgshape_norm",catname.c_str(),ext.c_str()),"nbkg",data->sumEntries(),0,3*data->sumEntries());
 			//nBackground.removeRange(); // bug in roofit will break combine until dev branch brought in
 			//double check the best pdf!
-			int bestFitPdfIndex = getBestFitFunction(pdf,data,&catIndex,!verbose);
+//			int bestFitPdfIndex = getBestFitFunction(pdf,data,&catIndex,!verbose);
+      int bestFitPdfIndex = getBestFitFunction(pdf,data,&catIndex,false);
 			catIndex.setIndex(bestFitPdfIndex);
 			std::cout << "// ------------------------------------------------------------------------- //" <<std::endl; 
 			std::cout << "[INFO] Created MultiPdf " << pdf->GetName() << ", in Category " << cat << " with a total of " << catIndex.numTypes() << " pdfs"<< std::endl;
