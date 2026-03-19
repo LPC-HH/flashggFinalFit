@@ -44,11 +44,11 @@ PdfModelBuilder::PdfModelBuilder():
   verbosity(0)
 {
   
-//  recognisedPdfTypes.push_back("Bernstein");
+  recognisedPdfTypes.push_back("Bernstein");
   recognisedPdfTypes.push_back("ModBreitWigner");
   recognisedPdfTypes.push_back("Exponential");
-//  recognisedPdfTypes.push_back("PowerLaw");
-//  recognisedPdfTypes.push_back("Laurent");
+  recognisedPdfTypes.push_back("PowerLaw");
+  recognisedPdfTypes.push_back("Laurent");
   recognisedPdfTypes.push_back("DYTheory");
   recognisedPdfTypes.push_back("KeysPdf");
   recognisedPdfTypes.push_back("File");
@@ -108,8 +108,8 @@ RooAbsPdf* PdfModelBuilder::getModBreitWigner(string prefix) {
     // floating parameters
     RooRealVar* alpha1 = new RooRealVar(Form("%s_alpha1", prefix.c_str()), "Shape exponent", 
                                         2.0,  // ini
-                                        1.5,  // min
-                                        3.0); // max
+                                        1.8,  // min
+                                        2.2); // max
     
     // floating parameters
     RooRealVar* alpha2 = new RooRealVar(Form("%s_alpha2", prefix.c_str()), "Linear exponent", 
@@ -120,8 +120,8 @@ RooAbsPdf* PdfModelBuilder::getModBreitWigner(string prefix) {
     // floating parameters
     RooRealVar* alpha3 = new RooRealVar(Form("%s_alpha3", prefix.c_str()), "Quadratic exponent", 
                                         0.0,     // ini
-                                        -0.01,   // min
-                                        0.01);   // max
+                                        -0.001,   // min
+                                        0.001);   // max
     
     // store floating
     params.insert({alpha1->GetName(), alpha1});
@@ -485,13 +485,13 @@ void PdfModelBuilder::addBkgPdf(string type, int nParams, string name, bool cach
   }
   RooAbsPdf *pdf=0;// avoid uninitialised variable error in cmssw  
 
-//  if (type=="Bernstein") pdf = getBernstein(name,nParams);
+  if (type=="Bernstein") pdf = getBernstein(name,nParams);
   if (type=="Exponential") pdf = getExponentialSingle(name,nParams);
   if (type == "ModBreitWigner") {
     pdf = getModBreitWigner(name);
   }
-//  if (type=="PowerLaw") pdf = getPowerLawSingle(name,nParams);
-//  if (type=="Laurent") pdf = getLaurentSeries(name,nParams);
+  if (type=="PowerLaw") pdf = getPowerLawSingle(name,nParams);
+  if (type=="Laurent") pdf = getLaurentSeries(name,nParams);
   if (type=="DYTheory") pdf = getDYTheory(name,nParams);
   if (type=="KeysPdf") pdf = getKeysPdf(name);
   if (type=="File") pdf = getPdfFromFile(name);

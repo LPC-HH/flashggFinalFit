@@ -4,8 +4,7 @@ set -euo pipefail
 LOGFILE="${LOGFILE:-text2workspace.log}"
 
 categories=(
-  ggH ggHcat1 ggHcat2 ggHcat3
-  VBF VBFcat1 VBFcat2 VBFcat3 VBFcat4 All
+  ggH ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5 ggHcat6
 )
 
 : > "$LOGFILE"

@@ -54,8 +54,8 @@ namespace po = program_options;
 
 bool BLIND = true;
 bool runFtestCheckWithToys=false;
-int mgg_low =100;
-int mgg_high =180;
+int mgg_low =110;
+int mgg_high =150;
 int nBinsForMass = 4*(mgg_high-mgg_low);
 
 RooRealVar *intLumi_ = new RooRealVar("IntLumi","hacked int lumi", 1000.);
@@ -726,14 +726,14 @@ int main(int argc, char* argv[]){
 	functionClasses.push_back("Bernstein");
 	functionClasses.push_back("Exponential");
 	functionClasses.push_back("PowerLaw");
-	functionClasses.push_back("Laurent");
+//	functionClasses.push_back("Laurent");
   functionClasses.push_back("DYTheory");
   functionClasses.push_back("ModBreitWigner");
 	map<string,string> namingMap;
 	namingMap.insert(pair<string,string>("Bernstein","pol"));
 	namingMap.insert(pair<string,string>("Exponential","exp"));
 	namingMap.insert(pair<string,string>("PowerLaw","pow"));
-	namingMap.insert(pair<string,string>("Laurent","lau"));
+//	namingMap.insert(pair<string,string>("Laurent","lau"));
   namingMap.insert(pair<string,string>("DYTheory","dyt"));
   namingMap.insert(pair<string,string>("ModBreitWigner","mBW"));
 
@@ -748,6 +748,9 @@ int main(int argc, char* argv[]){
 
 	PdfModelBuilder pdfsModel;
 	RooRealVar *mass = (RooRealVar*)inWS->var("CMS_hgg_mass");
+//  mass->setRange(110,150);
+  mass->setMin(110);
+  mass->setMax(150);
 	std:: cout << "[INFO] Got mass from ws " << mass << std::endl;
 	pdfsModel.setObsVar(mass);
 	double upperEnvThreshold = 0.1; // upper threshold on delta(chi2) to include function in envelope (looser than truth function)
@@ -818,6 +821,7 @@ int main(int argc, char* argv[]){
 		}
 		RooDataHist thisdataBinned(thisdataBinned_name.c_str(),"data",*mass,*dataFull);
 		data = (RooDataSet*)&thisdataBinned;
+//    RooDataSet *data = dataFull;
 
 		RooArgList storedPdfs("store");
 
@@ -902,7 +906,7 @@ int main(int argc, char* argv[]){
 
 			int counter =0;
 			//	while (prob<0.05){
-			while (prob<0.05 && order < 5){ //FIXME
+			while (prob<0.05 && order < 7){ //FIXME
 				RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,order,Form("ftest_pdf_%d_%s",(cat+catOffset),ext.c_str()));
 				if (!bkgPdf){
 					// assume this order is not allowed
@@ -984,11 +988,11 @@ int main(int argc, char* argv[]){
             break; 
         }
 
-				while (prob<upperEnvThreshold){
+				while (prob<upperEnvThreshold&& order < 7){
 					RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,order,Form("env_pdf_%d_%s",(cat+catOffset),ext.c_str()));
 					if (!bkgPdf ){
 						// assume this order is not allowed
-						if (order >=6) { std::cout << " [WARNING] could not add ] " << std::endl; break ;}
+						if (order >6) { std::cout << " [WARNING] could not add ] " << std::endl; break ;}
 						order++;
 					}
 					else {
