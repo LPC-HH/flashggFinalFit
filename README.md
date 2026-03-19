@@ -39,6 +39,9 @@ cd flashggFinalFit/
 source setup.sh
 ```
 
+Add: please redo the scram b -j 8 after installing the final fit package, since the DYCore is put as a Combine plugin now.
+
+
 ## Contents
 The Finals Fits package contains several subfolders which are used for the following steps:
 

@@ -4,16 +4,13 @@ LOGFILE="run_AsymptoticLimits_results_$(date +%Y%m%d_%H%M%S).log"
 CSVFILE="run_AsymptoticLimits_results_$(date +%Y%m%d_%H%M%S).csv"
 
 categories=(
-    ggH
+#    ggH
     ggHcat1
     ggHcat2
     ggHcat3
-    VBF
-    VBFcat1
-    VBFcat2
-    VBFcat3
-    VBFcat4
-    All
+    ggHcat4
+    ggHcat5
+    ggHcat6
 )
 
 echo "Category,2.5%_Expected,16.0%_Expected,50.0%_Expected,84.0%_Expected,97.5%_Expected" > "$CSVFILE"

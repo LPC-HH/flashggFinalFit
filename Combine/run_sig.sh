@@ -8,12 +8,9 @@ categories=(
     ggHcat1
     ggHcat2
     ggHcat3
-    VBF
-    VBFcat1
-    VBFcat2
-    VBFcat3
-    VBFcat4
-    All
+    ggHcat4
+    ggHcat5
+    ggHcat6
 )
 
 echo "Category,Significance" > "$CSVFILE"
@@ -24,7 +21,7 @@ run_combine() {
 
     echo ">>> Running on $category ($datacard)" | tee -a "$LOGFILE"
 
-    output=$(combine -M Significance "$datacard" -m 125 -t -1 --expectSignal 1 2>&1)
+    output=$(combine -M Significance "$datacard" -m 125 -t -1 --expectSignal 1 --setParameterRanges MH=120,130 -v 3 --freezeParameters MH 2>&1)
 
     echo "$output" >> "$LOGFILE"
     echo "" >> "$LOGFILE"

@@ -6,7 +6,7 @@ signalScriptCfg = {
   
   # Setup
   # 'inputWSDir':'PATH_TO_INPUTS/workspaces/signal_%s'%_year,
-  'inputWSDir':os.getenv('ROOT_IO') + '/tuples/split_tuples/ggH/ws_GG2H',
+  'inputWSDir':'/eos/user/z/zhguo/flashgg/ntuples/ws_GG2H',
 
   'procs':'auto', # if auto: inferred automatically from filenames
   'cats':'auto', # if auto: inferred automatically from (0) workspace
