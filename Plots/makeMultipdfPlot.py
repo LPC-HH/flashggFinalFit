@@ -8,10 +8,13 @@ import glob
 import pickle
 import math
 import json
+import csv
 from collections import OrderedDict as od
 
 from commonTools import *
 from commonObjects import *
+
+CSVFILE="out_Yields.csv"
 
 def get_options():
   parser = OptionParser()
@@ -87,6 +90,21 @@ if opt.doZeroes:
     if hists['data'].GetBinContent(ibin)==0.:
       hists['data'].SetBinError(ibin,1)
 
+'''
+bin1 = hists['data'].FindBin(122)
+bin2 = hists['data'].FindBin(128)
+axis = hists['data'].GetXaxis()
+nbins = hists['data'].GetNbinsX()
+centers = [axis.GetBinCenter(i) for i in range(1, nbins+1)]
+values = np.array([hists['data'].GetBinContent(i) for i in range(1, nbins+1)])
+print(values)
+#npHistData = np.array(hists['data'])
+
+s = np.sum(values[bin1:bin2])
+n = hists['data'].Integral(bin1, bin2)
+print(centers)
+print(f"-------------- Bin 1: {bin1} | Bin 2: {bin2} --------------")
+print(f"-------------- Data Number in HWHM: {n} {s} --------------")'''
 # Create ratio histograms
 hists_ratio = od()
 for bname in bpdfs:
@@ -99,6 +117,7 @@ for ibin in range(1,hists['data'].GetNbinsX()+1):
   if(not opt.unblind)&(bcenter>blindingRegion[0])&(bcenter<blindingRegion[1]): continue
   bval, berr = hists['data'].GetBinContent(ibin), hists['data'].GetBinError(ibin)
   bkgval = hists["%s_nBins"%bpdf_bf_name].GetBinContent(ibin)
+  #print(f"-------------- BKG val in bin: {bkgval} {ibin} --------------")
   hists_ratio['data'].SetBinContent(ibin,bval-bkgval)
   hists_ratio['data'].SetBinError(ibin,berr)
 
@@ -219,7 +238,54 @@ if doSignal:
   hists['spdf'].SetFillColor(38)
   hists['spdf'].SetFillStyle(3001)
   hists['spdf'].GetXaxis().SetRangeUser(blindingRegion[0],blindingRegion[1])
+  lowBin = hists['spdf'].FindFirstBinAbove(0.5*hists['spdf'].GetMaximum())
+  highBin = hists['spdf'].FindLastBinAbove(0.5*hists['spdf'].GetMaximum())
+  fwhm_low = hists['spdf'].GetBinCenter(lowBin)
+  fwhm_high = hists['spdf'].GetBinCenter(highBin)
+  fwhmText = ROOT.TLatex()
+  fwhmText.SetTextFont(42)
+  fwhmText.SetTextAlign(11)
+  fwhmText.SetNDC()
+  fwhmText.SetTextSize(0.03)
+  fwhmText.DrawLatex(0.17,0.25,"FWHM = %1.2f GeV"%(fwhm_high-fwhm_low))
+  print(f'-------------- FWHM_low: {fwhm_low} | FWHM_high: {fwhm_high} --------------')
+
+  #signal_yieldFWHM = 0
+  #bkg_yieldFWHM = 0
+  #signal_yield_total = 0
+  #print("%s_nBins"%bpdf_bf_name)
+  #for ibin in range(1,hists['spdf'].GetNbinsX()+1):
+  #for ibin in range(lowBin, highBin+1):
+    #bcenter = hists['spdf'].GetBinCenter(ibin)
+    #sigval, sigerr = hists['spdf'].GetBinContent(ibin), hists['spdf'].GetBinError(ibin)
+    #bkgval = hists["%s_nBins"%bpdf_bf_name].GetBinContent(ibin)
+    #print(f"-------------- SIG val: {sigval} in bin: {ibin} @ Mmumu: {bcenter} --------------")
+    #signal_yield_total += sigval
+    #if ibin in range(lowBin, highBin+1):
+      #signal_yieldFWHM += sigval
+    #bkg_yieldFWHM += bkgval
+  
+  bkg_lowBin = hists["%s_nBins"%bpdf_bf_name].FindBin(fwhm_low)
+  bkg_highBin = hists["%s_nBins"%bpdf_bf_name].FindBin(fwhm_high)
+
+  #for ibin in range(bkg_lowBin, bkg_highBin+1):
+    #bcenter = hists["%s_nBins"%bpdf_bf_name].GetBinCenter(ibin)
+    #bkgval = hists["%s_nBins"%bpdf_bf_name].GetBinContent(ibin)
+    #bkg_yieldFWHM += bkgval
+    #print(f"-------------- BKG val: {bkgval} in bin: {ibin} @ Mmumu: {bcenter} --------------")
+
+  signal_yield_total = hists['spdf'].Integral("width")
+  signal_yieldFWHM = hists['spdf'].Integral(lowBin, highBin, "width")
+  bkg_yieldFWHM = hists["%s_nBins"%bpdf_bf_name].Integral(bkg_lowBin, bkg_highBin, "width")
+  #print(f"Signal Integral: {sigIntTot} | Signal Integral FWHM: {sigIntFWHM}")
+  print(f'-------------- Signal Yield Total: {signal_yield_total} | Signal Yield FHWM: {signal_yieldFWHM} | Bkg Yield FWHM: {bkg_yieldFWHM} --------------')
   hists['spdf'].Draw("Hist same cf")
+yieldText = ROOT.TLatex()
+yieldText.SetTextFont(42)
+yieldText.SetTextAlign(11)
+yieldText.SetNDC()
+yieldText.SetTextSize(0.03)
+yieldText.DrawLatex(0.17,0.65,"S = %.2f | S_FWHM = %.2f | B_FWHM = %.2f "%(signal_yield_total, signal_yieldFWHM, bkg_yieldFWHM))
 
 colourOptions=[1,2,3,4,5,6,7,8,9]
 bnames = list(bpdfs.keys())
