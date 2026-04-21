@@ -10,14 +10,12 @@ categories=(
     ggHcat3
     ggHcat4
     ggHcat5
-    ggHcat6
     VBF
     VBFcat1
     VBFcat2
     VBFcat3
     VBFcat4
     VBFcat5
-    VBFcat6
     All
 )
 
