@@ -333,8 +333,8 @@ if doSignal:
       #signal_yieldFWHM += sigval
     #bkg_yieldFWHM += bkgval
   
-  bkg_lowBin = hists["%s_nBins"%bpdf_bf_name].FindBin(fwhm_low)
-  bkg_highBin = hists["%s_nBins"%bpdf_bf_name].FindBin(fwhm_high)
+  bkg_lowBin = hists["%s"%bpdf_bf_name].FindBin(fwhm_low)
+  bkg_highBin = hists["%s"%bpdf_bf_name].FindBin(fwhm_high)
 
   #for ibin in range(bkg_lowBin, bkg_highBin+1):
     #bcenter = hists["%s_nBins"%bpdf_bf_name].GetBinCenter(ibin)
@@ -344,17 +344,18 @@ if doSignal:
 
   signal_yield_total = hists['spdf'].Integral("width")
   signal_yieldFWHM = hists['spdf'].Integral(lowBin, highBin, "width")
-  bkg_yield_total = hists["%s_nBins"%bpdf_bf_name].Integral("width")
-  bkg_yieldFWHM = hists["%s_nBins"%bpdf_bf_name].Integral(bkg_lowBin, bkg_highBin, "width")
+  bkg_yield_total = hists["%s"%bpdf_bf_name].Integral("width")
+  bkg_yieldFWHM = hists["%s"%bpdf_bf_name].Integral(bkg_lowBin, bkg_highBin, "width")
   #print(f"Signal Integral: {sigIntTot} | Signal Integral FWHM: {sigIntFWHM}")
-  print(f'-------------- Signal Yield Total: {signal_yield_total} | Signal Yield FHWM: {signal_yieldFWHM} | Bkg Yield FWHM: {bkg_yieldFWHM} --------------')
+  print(f'-------------- Signal Yield Total: {signal_yield_total} | Signal Yield FHWM: {signal_yieldFWHM} --------------\n-------------- Bkg Yield Total: {bkg_yield_total} | Bkg Yield FWHM: {bkg_yieldFWHM} --------------')
   hists['spdf'].Draw("Hist same cf")
 yieldText = ROOT.TLatex()
 yieldText.SetTextFont(42)
 yieldText.SetTextAlign(11)
 yieldText.SetNDC()
 yieldText.SetTextSize(0.03)
-yieldText.DrawLatex(0.17,0.65,"S = %.2f | S_FWHM = %.2f | B_FWHM = %.2f "%(signal_yield_total, signal_yieldFWHM, bkg_yieldFWHM))
+yieldText.DrawLatex(0.17,0.65,"S = %.2f | S_FWHM = %.2f "%(signal_yield_total, signal_yieldFWHM))
+yieldText.DrawLatex(0.17,0.6,"B = %.2f | B_FWHM = %.2f "%(bkg_yield_total, bkg_yieldFWHM))
 yields = {'Category': Translate(cat,translateCats),'FWHM': (fwhm_high-fwhm_low), 'Total Sig': signal_yield_total, 'Total Bkg': bkg_yield_total, 'Sig FWHM': signal_yieldFWHM, 'Bkg FWHM': bkg_yieldFWHM}
 colourOptions=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 bnames = list(bpdfs.keys())
