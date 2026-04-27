@@ -91,7 +91,6 @@ def main() -> None:
     # --- ggH ---
     ggh_cats = ["ggHcat1", "ggHcat2", "ggHcat3", "ggHcat4", "ggHcat5"]
     ggh_path = f"{root_io}/tuples/split_tuples/ggH/ws_GG2H"
-
     print("---------------------------- ggH -----------------------------------")
     for cat in ggh_cats:
         run_datacard(cat=cat, channel="ggH", ws_path=ggh_path)

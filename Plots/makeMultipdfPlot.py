@@ -21,12 +21,12 @@ def get_options():
   parser.add_option("--inputWSFile", dest="inputWSFile", default=None, help="Input multipdf RooWorkspace file")
   parser.add_option("--cat", dest="cat", default="RECO_0J_PTH_0_10_Tag0", help="Analysis category")
   parser.add_option("--unblind", dest="unblind", default=False, action="store_true", help="Unblind signal region")
-  parser.add_option("--blindingRegion", dest="blindingRegion", default="116,134", help="Region in xvar to blind")
+  parser.add_option("--blindingRegion", dest="blindingRegion", default="115,135", help="Region in xvar to blind")
   parser.add_option("--doZeroes", dest="doZeroes", default=False, action="store_true", help="Add error of unity to zero bins to show on plot")
   parser.add_option("--ext", dest="ext", default='', help="Extension for saving")
   parser.add_option("--mass", dest="mass", default=125.38, help="Higgs mass")
   parser.add_option("--xvar", dest="xvar", default="CMS_hgg_mass,m_{#mu#mu},GeV", help="X-variable: name,title,units")
-  parser.add_option("--nBins", dest="nBins", default=80, type='int', help="Number of bins")
+  parser.add_option("--nBins", dest="nBins", default=160, type='int', help="1GeV per bin, Number of bins")
   parser.add_option("--pdfNBins", dest="pdfNBins", default=3200, type='int', help="Number of bins")
   parser.add_option("--translateCats", dest="translateCats", default=None, help="JSON to store cat translations")
   parser.add_option("--inputSignalWSFile", dest="inputSignalWSFile", default=None, help="Input wsig_13TeV RooWorkspace file. If not none this will add signal to plot")
@@ -39,6 +39,9 @@ if opt.inputWSFile is not None:
   f = ROOT.TFile(opt.inputWSFile)
   w = f.Get("multipdf")
 
+SB1_low, SB1_high = 110, 115
+SB2_low, SB2_high = 135, 150
+
 # Define blinding region
 blindingRegion = [float(opt.blindingRegion.split(",")[0]),float(opt.blindingRegion.split(",")[1])]
 # Define xvariable and categories
@@ -47,7 +50,16 @@ weight = ROOT.RooRealVar("weight","weight",0)
 xvar.SetTitle(opt.xvar.split(",")[1])
 xvar.setPlotLabel(opt.xvar.split(",")[1])
 xvar.setUnit(opt.xvar.split(",")[2])
+xvar.setRange("SB1", SB1_low, SB1_high)
+xvar.setRange("SB2", SB2_low, SB2_high)
 xvar_arglist, xvar_argset = ROOT.RooArgList(xvar), ROOT.RooArgSet(xvar)
+
+print("\n=== XVAR DEBUG ===")
+print("Name:", xvar.GetName())
+print("xmin =", xvar.getMin())
+print("xmax =", xvar.getMax())
+print("nbins =", xvar.getBins())
+print("=================\n")
 
 # Exact multipdf object and pdfindex
 multipdf = w.pdf("CMS_hgg_%s_13TeV_bkgshape"%opt.cat)
@@ -58,30 +70,79 @@ for ipdf in range(multipdf.getNumPdfs()):
   bpdfs[multipdf.getPdf(ipdf).GetName()] = w.pdf(multipdf.getPdf(ipdf).GetName())
   if ipdf == pdfindex_bf: bpdf_bf_name = multipdf.getPdf(ipdf).GetName()
 
+print("=== Best fit pdf:", bpdf_bf_name, "===")
+bpdf_bf = bpdfs[bpdf_bf_name]
+bpdf_bf.getParameters(ROOT.RooArgSet(xvar)).Print("v")
+
+
+print("\n=== FUNCTION VALUE DEBUG ===")
+
+test_points = [110.125, 113.625, 140.125, 148.125]
+
+for x in test_points:
+    xvar.setVal(x)
+    val = bpdf_bf.getVal(ROOT.RooArgSet(xvar))
+    print(f"x = {x:.3f} -> pdf = {val:.10f}")
+
+print("===========================\n")
+
+
 # Make histograms from bpdfs and scale by norm
 norm = w.var("CMS_hgg_%s_13TeV_bkgshape_norm"%opt.cat).getVal()
 
 hists = od()
+
+d = w.data("roohist_data_mass_%s"%opt.cat)
+hists['data'] = xvar.createHistogram("h_data", ROOT.RooFit.Binning(opt.nBins,xvar.getMin(),xvar.getMax()))
+hists['data'].SetBinErrorOption(ROOT.TH1.kPoisson)
+
+if opt.unblind: d.fillHistogram(hists['data'],xvar_arglist)
+else: d.reduce("%s<%f|%s>%f"%(xvar.GetName(),blindingRegion[0],xvar.GetName(),blindingRegion[1])).fillHistogram(hists['data'],xvar_arglist)
+
+data_sb_integral = 0
+for ibin in range(1, hists['data'].GetNbinsX()+1):
+    bcenter = hists['data'].GetBinCenter(ibin)
+    if (bcenter >= SB1_low and bcenter <= SB1_high) or (bcenter >= SB2_low and bcenter <= SB2_high):
+        data_sb_integral += hists['data'].GetBinContent(ibin)
+
+print("\n\n\n\n")
+print("data_sb_integral:", data_sb_integral)
+print("\n\n\n\n")
+
 for bname, bpdf in list(bpdfs.items()):
   hists[bname] = bpdf.createHistogram("h_%s"%bname,xvar,ROOT.RooFit.Binning(opt.pdfNBins,xvar.getMin(),xvar.getMax()))
   #hists[bname].Scale(norm)
-  hists[bname].Scale(norm*(float(opt.pdfNBins)/float(opt.nBins)))
+  pdf_sb_integral = bpdf.createIntegral(ROOT.RooArgSet(xvar),ROOT.RooFit.NormSet(xvar),ROOT.RooFit.Range("SB1,SB2")).getVal()
+  scale = data_sb_integral / pdf_sb_integral 
+  print("\n\n\n\n")
+  print("data_sb_integral:", data_sb_integral)
+  print("pdf_sb_integral:", pdf_sb_integral)
+  print("scale:", scale)
+  print("\n\n\n\n")
+  hists[bname].Scale(scale*(float(opt.pdfNBins)/float(opt.nBins)))
 
   if bname == bpdf_bf_name:
     hists["%s_nBins"%bname] = bpdf.createHistogram("h_%s_nBins"%bname,xvar,ROOT.RooFit.Binning(opt.nBins,xvar.getMin(),xvar.getMax()))
-    hists["%s_nBins"%bname].Scale(norm)
+    hists["%s_nBins"%bname].Scale(scale)
 
 # Scale pdf histograms to match data
 xvar_range = int(xvar.getBinning().highBound()-xvar.getBinning().lowBound())
 if opt.nBins != xvar_range:
   for h in list(hists.values()): h.Scale(float(xvar_range)/opt.nBins)
   
+# ----------------------------------
+# Convert to Events / GeV  
+# ----------------------------------
+binWidth = (xvar.getMax() - xvar.getMin()) / float(opt.nBins)
+print("[INFO] binWidth =", binWidth)
+
+for name, h in hists.items():
+    h.Scale(1.0 / binWidth)
+
 # Extract data histogram
-d = w.data("roohist_data_mass_%s"%opt.cat)
-hists['data'] = xvar.createHistogram("h_data", ROOT.RooFit.Binning(opt.nBins,xvar.getMin(),xvar.getMax()))
-hists['data'].SetBinErrorOption(ROOT.TH1.kPoisson)
-if opt.unblind: d.fillHistogram(hists['data'],xvar_arglist)
-else: d.reduce("%s<%f|%s>%f"%(xvar.GetName(),blindingRegion[0],xvar.GetName(),blindingRegion[1])).fillHistogram(hists['data'],xvar_arglist)
+
+
+
 if opt.doZeroes:
   for ibin in range(1,hists['data'].GetNbinsX()+1):
     bcenter = hists['data'].GetBinCenter(ibin)
@@ -151,6 +212,8 @@ if opt.inputSignalWSFile is not None:
       hists['spdf'] = p.Clone("h_spdf")
       hists['spdf'].Reset()
     hists['spdf'] += p
+
+  hists['spdf'].Scale(1.0 / binWidth)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plotting
@@ -226,6 +289,8 @@ for bname in bpdfs:
   elif "exp" in bname: fname = "#bf{Sum of exponentials}"
   elif "pow" in bname: fname = "#bf{Sum of power law functions}"
   elif "lau" in bname: fname = "#bf{Laurent series}"
+  elif "mBW" in bname: fname = "#bf{modified Breit Wigner funciton}"
+  elif "dyt" in bname: fname = "#bf{DY Theory core with empirical function}"
   else: fname = "Unknown function"
   if bname == bpdf_bf_name: lstr = "#splitline{%s}{Order %s (Best fit)}"%(fname,bname[-1])
   else: lstr = "#splitline{%s}{Order %s}"%(fname,bname[-1])
@@ -287,7 +352,7 @@ yieldText.SetNDC()
 yieldText.SetTextSize(0.03)
 yieldText.DrawLatex(0.17,0.65,"S = %.2f | S_FWHM = %.2f | B_FWHM = %.2f "%(signal_yield_total, signal_yieldFWHM, bkg_yieldFWHM))
 
-colourOptions=[1,2,3,4,5,6,7,8,9]
+colourOptions=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 bnames = list(bpdfs.keys())
 for bidx, bname in enumerate(bnames):
   hists[bname].SetLineWidth(2)
@@ -321,6 +386,8 @@ h_axes_ratio = hists_ratio['data'].Clone()
 h_axes_ratio.Reset()
 h_axes_ratio.SetMaximum((hists_ratio['data'].GetMaximum()+hists_ratio['data'].GetBinError(hists_ratio['data'].GetMaximumBin()))*1.5)
 h_axes_ratio.SetMinimum((hists_ratio['data'].GetMinimum()-hists_ratio['data'].GetBinError(hists_ratio['data'].GetMinimumBin()))*1.3)
+#h_axes_ratio.SetMaximum(1030)
+#h_axes_ratio.SetMinimum(-1050)
 h_axes_ratio.SetTitle("")
 h_axes_ratio.GetXaxis().SetTitleSize(0.05*padSizeRatio)
 h_axes_ratio.GetXaxis().SetLabelSize(0.035*padSizeRatio)

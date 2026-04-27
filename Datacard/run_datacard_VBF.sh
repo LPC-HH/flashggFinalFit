@@ -1,3 +1,4 @@
+echo "---------------------------- NOT USED IN MAIN PIPELINE -----------------------------------"
 echo "---------------------------- RUNNING RUN DATACARD VBF -----------------------------------"
 
 python3 RunYields.py --inputWSDirMap combined=/uscms_data/d3/esledge/nobackup/CMSSW_14_0_14/src/HToMuMu/root_io/tuples/split_tuples/VBF/ws_VBF --cats VBFcat1 --procs auto --ext tutorial --mergeYears --skipCOWCorr --batch local --queue espresso
@@ -52,4 +53,4 @@ rm yields_tutorial/VBFcat2.pkl
 rm yields_tutorial/VBFcat3.pkl
 rm yields_tutorial/VBFcat4.pkl
 rm yields_tutorial/VBFcat5.pkl
-#rm yields_tutorial/VBFcat6.pkl
+#rm yields_tutorial/VBF.pkl

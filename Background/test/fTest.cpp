@@ -54,13 +54,18 @@ namespace po = program_options;
 
 bool BLIND = true;
 bool runFtestCheckWithToys=false;
-int mgg_low =100;
-int mgg_high =180;
+int mgg_low =110;
+int mgg_high =150;
 int nBinsForMass = 4*(mgg_high-mgg_low);
+double SB1_low = 110;
+double SB1_high = 115;
+double SB2_low = 135;
+double SB2_high = 150;
 
 RooRealVar *intLumi_ = new RooRealVar("IntLumi","hacked int lumi", 1000.);
 
 TRandom3 *RandomGen = new TRandom3();
+
 
 RooAbsPdf* getPdf(PdfModelBuilder &pdfsModel, string type, int order, const char* ext=""){
   
@@ -69,23 +74,42 @@ RooAbsPdf* getPdf(PdfModelBuilder &pdfsModel, string type, int order, const char
   else if (type=="Exponential") return pdfsModel.getExponentialSingle(Form("%s_exp%d",ext,order),order); 
   else if (type=="PowerLaw") return pdfsModel.getPowerLawSingle(Form("%s_pow%d",ext,order),order); 
   else if (type=="Laurent") return pdfsModel.getLaurentSeries(Form("%s_lau%d",ext,order),order); 
+  else if (type=="ModBreitWigner") {
+    return pdfsModel.getModBreitWigner(Form("%s_mBW2", ext));
+  }
+  else if (type=="DYTheory") return pdfsModel.getDYTheory(Form("%s_dyt%d",ext,order),order); 
   else {
     cerr << "[ERROR] -- getPdf() -- type " << type << " not recognised." << endl;
     return NULL;
   }
 }
 
-void runFit(RooAbsPdf *pdf, RooDataSet *data, double *NLL, int *stat_t, int MaxTries){
+void runFit(RooAbsPdf *pdf, RooAbsData *data, double *NLL, int *stat_t, int MaxTries){
 
 	int ntries=0;
   	RooArgSet *params_test = pdf->getParameters((const RooArgSet*)(0));
 	//params_test->Print("v");
 	int stat=1;
 	double minnll=10e8;
+  RooArgSet* obs = pdf->getObservables(*data);
+  RooRealVar* m = (RooRealVar*)obs->first();
+  std::cout << "[CHECK] has SB1? " << m->hasRange("SB1") << std::endl;
+  std::cout << "[CHECK] has SB2? " << m->hasRange("SB2") << std::endl;
+
+  std::cout << "[CHECK] SB1 range: "
+            << m->getMin("SB1") << " , "
+            << m->getMax("SB1") << std::endl;
+
+  std::cout << "[CHECK] SB2 range: "
+            << m->getMin("SB2") << " , "
+            << m->getMax("SB2") << std::endl;
 	while (stat!=0){
 	  if (ntries>=MaxTries) break;
+    std::cout << "[CHECK] SB integral = "
+              << pdf->createIntegral(*m, RooFit::Range("SB1,SB2"), RooFit::NormSet(*m))->getVal()
+              << std::endl;
 	  RooFitResult *fitTest = pdf->fitTo(*data,RooFit::Save(1)
-    ,RooFit::Minimizer("Minuit2","minimize"),RooFit::SumW2Error(kTRUE)); //FIXME
+    ,RooFit::Range("SB1,SB2"),RooFit::Minimizer("Minuit2","minimize"),RooFit::SumW2Error(kTRUE)); //FIXME
           stat = fitTest->status();
 	  minnll = fitTest->minNll();
 	  if (stat!=0) params_test->assignValueOnly(fitTest->randomizePars());
@@ -94,7 +118,7 @@ void runFit(RooAbsPdf *pdf, RooDataSet *data, double *NLL, int *stat_t, int MaxT
 	*stat_t = stat;
 	*NLL = minnll;
 }
-double getProbabilityFtest(double chi2, int ndof,RooAbsPdf *pdfNull, RooAbsPdf *pdfTest, RooRealVar *mass, RooDataSet *data, std::string name){
+double getProbabilityFtest(double chi2, int ndof,RooAbsPdf *pdfNull, RooAbsPdf *pdfTest, RooRealVar *mass, RooAbsData *data, std::string name){
  
   double prob_asym = TMath::Prob(chi2,ndof);
   if (!runFtestCheckWithToys) return prob_asym;
@@ -102,9 +126,9 @@ double getProbabilityFtest(double chi2, int ndof,RooAbsPdf *pdfNull, RooAbsPdf *
   int ndata = data->sumEntries();
   
   // fit the pdfs to the data and keep this fit Result (for randomizing)
-  RooFitResult *fitNullData = pdfNull->fitTo(*data,RooFit::Save(1),RooFit::Strategy(1)
+  RooFitResult *fitNullData = pdfNull->fitTo(*data,RooFit::Save(1),RooFit::Range("SB1,SB2"),RooFit::Strategy(1)
 		,RooFit::Minimizer("Minuit2","minimize"),RooFit::SumW2Error(kTRUE),RooFit::PrintLevel(-1)); //FIXME
-  RooFitResult *fitTestData = pdfTest->fitTo(*data,RooFit::Save(1),RooFit::Strategy(1)
+  RooFitResult *fitTestData = pdfTest->fitTo(*data,RooFit::Save(1),RooFit::Range("SB1,SB2"),RooFit::Strategy(1)
 		,RooFit::Minimizer("Minuit2","minimize"),RooFit::SumW2Error(kTRUE),RooFit::PrintLevel(-1)); //FIXME
 
   // Ok we want to check the distribution in toys then 
@@ -152,7 +176,7 @@ double getProbabilityFtest(double chi2, int ndof,RooAbsPdf *pdfNull, RooAbsPdf *
 	int MaxTries = 2;
 	while (stat_n!=0){
 	  if (ntries>=MaxTries) break;
-	  RooFitResult *fitNull = pdfNull->fitTo(*binnedtoy,RooFit::Save(1),RooFit::Strategy(1),RooFit::SumW2Error(kTRUE) //FIXME
+	  RooFitResult *fitNull = pdfNull->fitTo(*binnedtoy,RooFit::Save(1),RooFit::Range("SB1,SB2"),RooFit::Strategy(1),RooFit::SumW2Error(kTRUE) //FIXME
 		,RooFit::Minimizer("Minuit2","minimize"),RooFit::Minos(0),RooFit::Hesse(0),RooFit::PrintLevel(-1));
 		//,RooFit::Optimize(0));
 
@@ -165,7 +189,7 @@ double getProbabilityFtest(double chi2, int ndof,RooAbsPdf *pdfNull, RooAbsPdf *
 	ntries = 0;
 	while (stat_t!=0){
 	  if (ntries>=MaxTries) break;
-	  RooFitResult *fitTest = pdfTest->fitTo(*binnedtoy,RooFit::Save(1),RooFit::Strategy(1),RooFit::SumW2Error(kTRUE) //FIXME
+	  RooFitResult *fitTest = pdfTest->fitTo(*binnedtoy,RooFit::Save(1),RooFit::Range("SB1,SB2"),RooFit::Strategy(1),RooFit::SumW2Error(kTRUE) //FIXME
 		,RooFit::Minimizer("Minuit2","minimize"),RooFit::Minos(0),RooFit::Hesse(0),RooFit::PrintLevel(-1));
 	  nllTest = fitTest->minNll();
           stat_t = fitTest->status();
@@ -222,88 +246,120 @@ double getProbabilityFtest(double chi2, int ndof,RooAbsPdf *pdfNull, RooAbsPdf *
 
 }
 
-double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooDataSet *data, std::string name){
+double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std::string name){
 
-  double prob;
-  int ntoys = 500;
-  // Routine to calculate the goodness of fit. 
-  name+="_gofTest.pdf";
-  RooRealVar norm("norm","norm",data->sumEntries(),0,10E6);
-  //norm.removeRange();
-
-  RooExtendPdf *pdf = new RooExtendPdf("ext","ext",*mpdf,norm);
-
-  // get The Chi2 value from the data
-  RooPlot *plot_chi2 = mass->frame();
-  data->plotOn(plot_chi2,Binning(nBinsForMass),Name("data"));
-
-  pdf->plotOn(plot_chi2,Name("pdf"));
-  int np = pdf->getParameters(*data)->getSize();
-
-  double chi2 = plot_chi2->chiSquare("pdf","data",np);
-  std::cout << "[INFO] Calculating GOF for pdf " << pdf->GetName() << ", using " <<np << " fitted parameters" <<std::endl;
-
-  // The first thing is to check if the number of entries in any bin is < 5 
-  // if so, we don't rely on asymptotic approximations
- 
-  if ((double)data->sumEntries()/nBinsForMass < 5 ){
-
-    std::cout << "[INFO] Running toys for GOF test " << std::endl;
-    // store pre-fit params 
-    RooArgSet *params = pdf->getParameters(*data);
-    RooArgSet preParams;
-    params->snapshot(preParams);
-    int ndata = data->sumEntries();
- 
-    int npass =0;
-    std::vector<double> toy_chi2;
-    for (int itoy = 0 ; itoy < ntoys ; itoy++){
-    //  std::cout << "[INFO] " <<Form("\t.. %.1f %% complete\r",100*float(itoy)/ntoys) << std::flush;
-      params->assignValueOnly(preParams);
-      int nToyEvents = RandomGen->Poisson(ndata);
-      RooDataHist *binnedtoy = pdf->generateBinned(RooArgSet(*mass),nToyEvents,0,1);
-      pdf->fitTo(*binnedtoy,RooFit::Minimizer("Minuit2","minimize"),RooFit::Minos(0),RooFit::Hesse(0),RooFit::PrintLevel(-1),RooFit::Strategy(0),RooFit::SumW2Error(kTRUE)); //FIXME
-
-      RooPlot *plot_t = mass->frame();
-      binnedtoy->plotOn(plot_t);
-      pdf->plotOn(plot_t);//,RooFit::NormRange("fitdata_1,fitdata_2"));
-
-      double chi2_t = plot_t->chiSquare(np);
-      if( chi2_t>=chi2) npass++;
-      toy_chi2.push_back(chi2_t*(nBinsForMass-np));
-      delete plot_t;
-    }
-    std::cout << "[INFO] complete" << std::endl;
-    prob = (double)npass / ntoys;
-
-    TCanvas *can = new TCanvas();
-    double medianChi2 = toy_chi2[(int)(((float)ntoys)/2)];
-    double rms = TMath::Sqrt(medianChi2);
-
-    TH1F toyhist(Form("gofTest_%s.pdf",pdf->GetName()),";Chi2;",50,medianChi2-5*rms,medianChi2+5*rms);
-    for (std::vector<double>::iterator itx = toy_chi2.begin();itx!=toy_chi2.end();itx++){
-      toyhist.Fill((*itx));
-    }
-    toyhist.Draw();
-
-    TArrow lData(chi2*(nBinsForMass-np),toyhist.GetMaximum(),chi2*(nBinsForMass-np),0);
-    lData.SetLineWidth(2);
-    lData.Draw();
-    can->SaveAs(name.c_str());
-
-    // back to best fit 	
-    params->assignValueOnly(preParams);
-  } else {
-    prob = TMath::Prob(chi2*(nBinsForMass-np),nBinsForMass-np);
+  std::cout << "[INFO] === Running sideband GOF ===" << std::endl;
+  
+  // -----------------------------
+  // 0. Debug: check function inputs
+  std::cout << "[DEBUG] mass var: " << mass->GetName() 
+            << ", min=" << mass->getMin() 
+            << ", max=" << mass->getMax() << std::endl;
+  std::cout << "[DEBUG] pdf: " << mpdf->GetName() << std::endl;
+  std::cout << "[DEBUG] data: " << data->GetName() 
+            << ", entries=" << data->sumEntries() << std::endl;
+  std::cout << "[DEBUG] SB ranges: SB1=[" << SB1_low << "," << SB1_high 
+            << "], SB2=[" << SB2_low << "," << SB2_high << "]" << std::endl;
+            
+  // -----------------------------
+  // DEBUG: print all PDF parameters and values
+  RooArgSet* params = mpdf->getParameters(*data);
+  std::cout << "[DEBUG] PDF parameters for " << mpdf->GetName() << ":" << std::endl;
+  TIterator* iter = params->createIterator();
+  RooRealVar* var = nullptr;
+  while((var = (RooRealVar*)iter->Next())) {
+      std::cout << "  " << var->GetName() 
+                << " = " << var->getVal() 
+                << " �� " << var->getError() << std::endl;
   }
-  std::cout << "[INFO] Chi2 in Observed =  " << chi2*(nBinsForMass-np) << std::endl;
-  std::cout << "[INFO] p-value  =  " << prob << std::endl;
-  delete pdf;
-  return prob;
+  delete iter;
 
+  // -----------------------------
+  // 1. 画图（用于取 hist �?curve�?  // -----------------------------
+  RooPlot *plot_chi2 = mass->frame();
+
+  data->plotOn(plot_chi2,
+               Binning(nBinsForMass),
+               Name("data"));
+
+  mpdf->plotOn(plot_chi2,
+               Name("pdf"),
+               RooFit::Range("full"),
+               RooFit::NormRange("SB1,SB2"));  //  关键：SB归一�?
+  // -----------------------------
+  // 2. �?histogram �?curve
+  // -----------------------------
+  RooHist *hist  = (RooHist*)plot_chi2->getObject(0);
+  RooCurve *curve = (RooCurve*)plot_chi2->getObject(1);
+
+  if (!hist || !curve) {
+    std::cout << "[ERROR] Cannot extract RooHist or RooCurve!" << std::endl;
+    return -1;
+  }
+
+  // -----------------------------
+  // 3. 手动计算 chi2（只�?sideband�?  // -----------------------------
+  double chi2_sum = 0;
+  int nBins_used = 0;
+
+  for (int i = 0; i < hist->GetN(); i++) {
+
+    double x, y;
+    hist->GetPoint(i, x, y);
+
+    // 跳过非SB区域
+    if ( !( (x >= SB1_low && x <= SB1_high) ||
+            (x >= SB2_low && x <= SB2_high) ) ) continue;
+
+    if (y <= 0) continue;
+
+    double fit_val = curve->interpolate(x);
+
+    double chi2_bin = (y - fit_val)*(y - fit_val) / y;
+
+    chi2_sum += chi2_bin;
+    nBins_used++;
+
+    // ---- debug ----
+    std::cout << "[BIN] x=" << std::fixed << std::setprecision(3) << x
+              << " data=" << y
+              << " fit=" << fit_val
+              << " chi2_bin=" << chi2_bin
+              << std::endl;
+  }
+
+  // -----------------------------
+  // 4. ndof
+  // -----------------------------
+  int np = mpdf->getParameters(*data)->getSize();
+  int ndof = nBins_used - np;
+
+  if (ndof <= 0) {
+    std::cout << "[WARNING] ndof <= 0, invalid GOF!" << std::endl;
+    return -1;
+  }
+
+  // -----------------------------
+  // 5. p-value
+  // -----------------------------
+  double prob = TMath::Prob(chi2_sum, ndof);
+
+  // -----------------------------
+  // 6. 输出
+  // -----------------------------
+  std::cout << "[RESULT] chi2 = " << chi2_sum << std::endl;
+  std::cout << "[RESULT] nBins_used = " << nBins_used << std::endl;
+  std::cout << "[RESULT] np = " << np << std::endl;
+  std::cout << "[RESULT] ndof = " << ndof << std::endl;
+  std::cout << "[RESULT] chi2/ndof = " << chi2_sum/ndof << std::endl;
+  std::cout << "[RESULT] p-value = " << prob << std::endl;
+
+  delete plot_chi2;
+
+  return prob;
 }
 
-void plot(RooRealVar *mass, RooAbsPdf *pdf, RooDataSet *data, string name,vector<string> flashggCats_, int status, double *prob){
+void plot(RooRealVar *mass, RooAbsPdf *pdf, RooAbsData *data, string name,vector<string> flashggCats_, int status, double *prob){
   
   // Chi2 taken from full range fit
   RooPlot *plot_chi2 = mass->frame();
@@ -315,8 +371,8 @@ void plot(RooRealVar *mass, RooAbsPdf *pdf, RooDataSet *data, string name,vector
  
   *prob = getGoodnessOfFit(mass,pdf,data,name);
   RooPlot *plot = mass->frame();
-  mass->setRange("unblindReg_1",mgg_low,115);
-  mass->setRange("unblindReg_2",135,mgg_high);
+  mass->setRange("unblindReg_1",mgg_low,SB1_high);
+  mass->setRange("unblindReg_2",SB2_low,mgg_high);
   if (BLIND) {
     data->plotOn(plot,Binning(mgg_high-mgg_low),CutRange("unblindReg_1"));
     data->plotOn(plot,Binning(mgg_high-mgg_low),CutRange("unblindReg_2"));
@@ -326,7 +382,7 @@ void plot(RooRealVar *mass, RooAbsPdf *pdf, RooDataSet *data, string name,vector
 
  // data->plotOn(plot,Binning(mgg_high-mgg_low));
   TCanvas *canv = new TCanvas();
-  pdf->plotOn(plot);//,RooFit::NormRange("fitdata_1,fitdata_2"));
+  pdf->plotOn(plot,RooFit::NormRange("SB1,SB2"));//,RooFit::NormRange("fitdata_1,fitdata_2"));
   pdf->paramOn(plot,RooFit::Layout(0.34,0.96,0.89),RooFit::Format("NEA",AutoPrecision(1)));
   if (BLIND) plot->SetMinimum(0.0001);
   plot->SetTitle("");
@@ -343,22 +399,43 @@ void plot(RooRealVar *mass, RooAbsPdf *pdf, RooDataSet *data, string name,vector
   delete canv;
   delete lat;
 }
-void plot(RooRealVar *mass, RooMultiPdf *pdfs, RooCategory *catIndex, RooDataSet *data, string name, vector<string> flashggCats_, int cat, int bestFitPdf=-1){
+void plot(RooRealVar *mass, RooMultiPdf *pdfs, RooCategory *catIndex, RooAbsData *data, string name, vector<string> flashggCats_, int cat, int bestFitPdf=-1){
   
+  std::cout << "\n========== DEBUG START ==========\n";
+
+  double binWidth = 0.25;
+  int nBins = (mgg_high - mgg_low) / binWidth;
+
   int color[7] = {kBlue,kRed,kMagenta,kGreen+1,kOrange+7,kAzure+10,kBlack};
   TLegend *leg = new TLegend(0.5,0.55,0.92,0.88);
   leg->SetFillColor(0);
   leg->SetLineColor(1);
   RooPlot *plot = mass->frame();
 
-  mass->setRange("unblindReg_1",mgg_low,115);
-  mass->setRange("unblindReg_2",135,mgg_high);
+  mass->setRange("unblindReg_1",mgg_low,SB1_high);
+  mass->setRange("unblindReg_2",SB2_low,mgg_high);
+
+  // ===== DEBUG: mass range =====
+  std::cout << "[DEBUG] mass range: " 
+            << mass->getMin() << " -> " << mass->getMax() << std::endl;
+
+  mass->setRange("unblindReg_1",mgg_low,SB1_high);
+  mass->setRange("unblindReg_2",SB2_low,mgg_high);
+
+  std::cout << "[DEBUG] SB1: " << mgg_low << " -> " << SB1_high << "\n";
+  std::cout << "[DEBUG] SB2: " << SB2_low << " -> " << mgg_high << "\n";
+
+
   if (BLIND) {
-    data->plotOn(plot,Binning(mgg_high-mgg_low),CutRange("unblindReg_1"));
-    data->plotOn(plot,Binning(mgg_high-mgg_low),CutRange("unblindReg_2"));
-    data->plotOn(plot,Binning(mgg_high-mgg_low),Invisible());
+    data->plotOn(plot,Binning(nBins),CutRange("unblindReg_1"));
+    data->plotOn(plot,Binning(nBins),CutRange("unblindReg_2"));
+    data->plotOn(plot,Binning(nBins),Invisible());
   }
-  else data->plotOn(plot,Binning(mgg_high-mgg_low)); 
+  else data->plotOn(plot,Binning(nBins)); 
+
+
+  std::cout << "[DEBUG] data entries: " << data->numEntries() << std::endl;
+
   TCanvas *canv = new TCanvas();
   ///start extra bit for ratio plot///
   RooHist *plotdata = (RooHist*)plot->getObject(plot->numItems()-1);
@@ -385,8 +462,8 @@ void plot(RooRealVar *mass, RooMultiPdf *pdfs, RooCategory *catIndex, RooDataSet
     if (icat<=6) col=color[icat];
     else {col=kBlack; style++;}
     catIndex->setIndex(icat);
-    pdfs->getCurrentPdf()->fitTo(*data,RooFit::Minos(0),RooFit::Minimizer("Minuit2","minimize"),RooFit::SumW2Error(kTRUE));	 //FIXME
-    pdfs->getCurrentPdf()->plotOn(plot,LineColor(col),LineStyle(style));//,RooFit::NormRange("fitdata_1,fitdata_2"));
+    pdfs->getCurrentPdf()->fitTo(*data,RooFit::Range("SB1,SB2"),RooFit::Minos(0),RooFit::Minimizer("Minuit2","minimize"),RooFit::SumW2Error(kTRUE));	 //FIXME
+    pdfs->getCurrentPdf()->plotOn(plot,LineColor(col),LineStyle(style),RooFit::NormRange("SB1,SB2"));//,RooFit::NormRange("fitdata_1,fitdata_2"));
     TObject *pdfLeg = plot->getObject(int(plot->numItems()-1));
     std::string ext = "";
     if (bestFitPdf==icat) {
@@ -397,26 +474,56 @@ void plot(RooRealVar *mass, RooMultiPdf *pdfs, RooCategory *catIndex, RooDataSet
     }
     leg->AddEntry(pdfLeg,Form("%s%s",pdfs->getCurrentPdf()->GetName(),ext.c_str()),"L");
   }
+
+  // ===== build FULL curve for subtraction =====
+  RooPlot *plot_full = mass->frame();
+
+  data->plotOn(plot_full,
+              Binning(nBins),
+              Name("data"));
+
+  pdf->plotOn(plot_full,
+              RooFit::Range("full"),
+              RooFit::NormRange("SB1,SB2"));
+
+  RooCurve *fullCurve = (RooCurve*)plot_full->getObject(1);
+
   plot->SetTitle(Form("Category %s",flashggCats_[cat].c_str()));
   if (BLIND) plot->SetMinimum(0.0001);
   plot->Draw();
   leg->Draw("same");
   CMS_lumi( canv, 0, 0);
   ///start extra bit for ratio plot///
-  TH1D *hbplottmp = (TH1D*) pdf->createHistogram("hbplottmp",*mass,Binning(mgg_high-mgg_low,mgg_low,mgg_high));
+  TH1D *hbplottmp = (TH1D*) pdf->createHistogram("hbplottmp",*mass,Binning(nBins,mgg_low,mgg_high));
   hbplottmp->Scale(plotdata->Integral());
+
+  std::cout << "[DEBUG] plotdata integral = " << plotdata->Integral() << std::endl;
+  std::cout << "[DEBUG] hbplottmp integral = " << hbplottmp->Integral() << std::endl;
+
   hbplottmp->Draw("same");
+
+   // ===== LOWER PANEL DEBUG =====
+
   int npoints = plotdata->GetN();
   double xtmp,ytmp;//
   int point =0;
   TGraphAsymmErrors *hdatasub = new TGraphAsymmErrors(npoints);
+
+   std::cout << "\n===== DEBUG POINT BY POINT =====\n";
+
   //hdatasub->SetMarkerSize(defmarkersize);
   for (int ipoint=0; ipoint<npoints; ++ipoint) {
   //double bkgval = hbplottmp->GetBinContent(ipoint+1);
   plotdata->GetPoint(ipoint, xtmp,ytmp);
-  double bkgval = nomBkgCurve->interpolate(xtmp);
+  double bkgval = fullCurve->interpolate(xtmp);
+  std::cout << "[POINT " << ipoint << "] "
+              << "x=" << xtmp
+              << " y=" << ytmp
+              << " bkg=" << bkgval
+              << " diff=" << ytmp-bkgval
+              << std::endl;
   if (BLIND) {
-   if ((xtmp > 115 ) && ( xtmp < 135) ) continue;
+   if ((xtmp > SB1_high ) && ( xtmp < SB2_low) ) continue;
   }
   std::cout << "[INFO] plotdata->Integral() " <<  plotdata->Integral() << " ( bins " << npoints  << ") hbkgplots[i]->Integral() " << hbplottmp->Integral() << " (bins " << hbplottmp->GetNbinsX() << std::endl;
  double errhi = plotdata->GetErrorYhigh(ipoint);
@@ -452,9 +559,11 @@ void plot(RooRealVar *mass, RooMultiPdf *pdfs, RooCategory *catIndex, RooDataSet
   canv->SaveAs(Form("%s.png",name.c_str()));
   catIndex->setIndex(currentIndex);
   delete canv;
+
+  std::cout << "========== DEBUG END ==========\n\n";
 }
 
-void plot(RooRealVar *mass, map<string,RooAbsPdf*> pdfs, RooDataSet *data, string name, vector<string> flashggCats_, int cat, int bestFitPdf=-1){
+void plot(RooRealVar *mass, map<string,RooAbsPdf*> pdfs, RooAbsData *data, string name, vector<string> flashggCats_, int cat, int bestFitPdf=-1){
   
   int color[7] = {kBlue,kRed,kMagenta,kGreen+1,kOrange+7,kAzure+10,kBlack};
   TCanvas *canv = new TCanvas();
@@ -463,8 +572,8 @@ void plot(RooRealVar *mass, map<string,RooAbsPdf*> pdfs, RooDataSet *data, strin
   leg->SetLineColor(0);
   RooPlot *plot = mass->frame();
 
-  mass->setRange("unblindReg_1",mgg_low,115);
-  mass->setRange("unblindReg_2",135,mgg_high);
+  mass->setRange("unblindReg_1",mgg_low,SB1_high);
+  mass->setRange("unblindReg_2",SB2_low,mgg_high);
   if (BLIND) {
     data->plotOn(plot,Binning(mgg_high-mgg_low),CutRange("unblindReg_1"));
     data->plotOn(plot,Binning(mgg_high-mgg_low),CutRange("unblindReg_2"));
@@ -484,7 +593,7 @@ void plot(RooRealVar *mass, map<string,RooAbsPdf*> pdfs, RooDataSet *data, strin
     int col;
     if (i<=6) col=color[i];
     else {col=kBlack; style++;}
-    it->second->plotOn(plot,LineColor(col),LineStyle(style));//,RooFit::NormRange("fitdata_1,fitdata_2"));
+    it->second->plotOn(plot,LineColor(col),LineStyle(style),RooFit::NormRange("SB1,SB2"));//,RooFit::NormRange("fitdata_1,fitdata_2"));
     TObject *pdfLeg = plot->getObject(int(plot->numItems()-1));
     std::string ext = "";
     if (bestFitPdf==i) ext=" (Best Fit Pdf) ";
@@ -514,7 +623,7 @@ void transferMacros(TFile *inFile, TFile *outFile){
     }
   }
 }
-int getBestFitFunction(RooMultiPdf *bkg, RooDataSet *data, RooCategory *cat, bool silent=false){
+int getBestFitFunction(RooMultiPdf *bkg, RooAbsData *data, RooCategory *cat, bool silent=false){
 
 
 	double global_minNll = 1E10;
@@ -553,6 +662,20 @@ int getBestFitFunction(RooMultiPdf *bkg, RooDataSet *data, RooCategory *cat, boo
 		double minNll=0; //(nllm->getVal())+bkg->getCorrection();
 		int fitStatus=1;		
 		runFit(bkg->getCurrentPdf(),data,&minNll,&fitStatus,/*max iterations*/3);
+   
+    RooAbsReal* nll_SB   = bkg->getCurrentPdf()->createNLL(*data, Range("SB1,SB2"));
+    RooAbsReal* nll_FULL = bkg->getCurrentPdf()->createNLL(*data);
+
+    double val_SB   = nll_SB->getVal();
+    double val_FULL = nll_FULL->getVal();
+
+    std::cout 
+        << "[DEBUG] " << bkg->getCurrentPdf()->GetName()
+        << "  NLL_SB="   << val_SB
+        << "  NLL_FULL=" << val_FULL
+        << "  SR_contrib=" << (val_FULL - val_SB)
+        << std::endl;
+   
 		// Add the penalty
 
 		minNll=minNll+bkg->getCorrection();
@@ -587,6 +710,13 @@ int getBestFitFunction(RooMultiPdf *bkg, RooDataSet *data, RooCategory *cat, boo
 		std::cout << "[INFO] Best fit Function -- " << bkg->getCurrentPdf()->GetName() << " " << cat->getIndex() <<std::endl;
 		//bkg->getCurrentPdf()->getParameters(*data)->Print("v");
 	}
+ 
+  std::cout << "PDF = " << bkg->getCurrentPdf()->GetName()
+          << "  NLL = " << global_minNll  - bkg->getCorrection()
+          << "  correction = " << bkg->getCorrection()
+          << "  penalized = " << global_minNll  
+          << std::endl;   
+ 
 	return best_index;
 }
 
@@ -715,12 +845,16 @@ int main(int argc, char* argv[]){
 	functionClasses.push_back("Bernstein");
 	functionClasses.push_back("Exponential");
 	functionClasses.push_back("PowerLaw");
-	functionClasses.push_back("Laurent");
+//	functionClasses.push_back("Laurent");
+  functionClasses.push_back("DYTheory");
+  functionClasses.push_back("ModBreitWigner");
 	map<string,string> namingMap;
 	namingMap.insert(pair<string,string>("Bernstein","pol"));
 	namingMap.insert(pair<string,string>("Exponential","exp"));
 	namingMap.insert(pair<string,string>("PowerLaw","pow"));
-	namingMap.insert(pair<string,string>("Laurent","lau"));
+//	namingMap.insert(pair<string,string>("Laurent","lau"));
+  namingMap.insert(pair<string,string>("DYTheory","dyt"));
+  namingMap.insert(pair<string,string>("ModBreitWigner","mBW"));
 
 	// store results here
 
@@ -733,6 +867,13 @@ int main(int argc, char* argv[]){
 
 	PdfModelBuilder pdfsModel;
 	RooRealVar *mass = (RooRealVar*)inWS->var("CMS_hgg_mass");
+//  mass->setRange(mgg_low,mgg_high);
+  mass->setMin(mgg_low);
+  mass->setMax(mgg_high);
+  mass->setRange("SB1",mgg_low,SB1_high);
+  mass->setRange("SB2",SB2_low,mgg_high);
+  mass->setRange("FULL",mgg_low,mgg_high);
+  mass->setRange("full",mgg_low,mgg_high);
 	std:: cout << "[INFO] Got mass from ws " << mass << std::endl;
 	pdfsModel.setObsVar(mass);
 	double upperEnvThreshold = 0.1; // upper threshold on delta(chi2) to include function in envelope (looser than truth function)
@@ -785,7 +926,7 @@ int main(int argc, char* argv[]){
 
 
 		mass->setBins(nBinsForMass);
-		RooDataSet *data;
+//		RooDataSet *data;
 		//	RooDataHist thisdataBinned(Form("roohist_data_mass_cat%d",cat),"data",*mass,*dataFull);
 		//	RooDataSet *data = (RooDataSet*)&thisdataBinned;
 		string thisdataBinned_name;
@@ -801,8 +942,15 @@ int main(int argc, char* argv[]){
 			thisdataBinned_name= Form("roohist_data_mass_cat%d",cat);
 			//RooDataSet *data = (RooDataSet*)dataFull;
 		}
-		RooDataHist thisdataBinned(thisdataBinned_name.c_str(),"data",*mass,*dataFull);
-		data = (RooDataSet*)&thisdataBinned;
+   
+    RooDataSet* dataCut = (RooDataSet*)dataFull->reduce(
+        "(CMS_hgg_mass < 149.999999)"  
+    ); 
+   
+   
+		RooDataHist thisdataBinned(thisdataBinned_name.c_str(),"data",*mass,*dataCut);
+		RooAbsData* data = &thisdataBinned;
+//    RooDataSet *data = dataFull;
 
 		RooArgList storedPdfs("store");
 
@@ -815,6 +963,68 @@ int main(int argc, char* argv[]){
 		// Standard F-Test to find the truth functions
 		for (vector<string>::iterator funcType=functionClasses.begin(); 
 				funcType!=functionClasses.end(); funcType++){
+        
+/////////////////////////////////////////////////////////////////////////////  
+        if (*funcType == "ModBreitWigner") {
+          std::vector<int> pdforders;  // pdforders
+          int fixedOrder = 3;
+    
+          RooAbsPdf *bkgPdf = getPdf(pdfsModel, *funcType, fixedOrder, 
+                      Form("env_pdf_%d_%s", (cat+catOffset), ext.c_str()));
+    
+          
+              int fitStatus = 0;
+              double thisNll = 0;
+              runFit(bkgPdf, data, &thisNll, &fitStatus, 3);
+              
+       /////////////////////////////////////////// 
+              // output (no ftest)
+              fprintf(resFile, "%15s & %d & %5.2f & %5.2f \\\\\n", 
+                      funcType->c_str(), fixedOrder, 0.0, 1.0);
+        
+              // store result
+              choices.insert({*funcType, fixedOrder});  // order seen as 0
+              pdfs.insert({Form("%s%d", funcType->c_str(), fixedOrder), bkgPdf});  // name like "ModBreitWigner0"
+              
+              // visualization
+        
+              double gofProb = 0;
+              plot(mass, bkgPdf, data, 
+              Form("%s/%s%d_cat%d.pdf", outDir.c_str(), funcType->c_str(), fixedOrder, (cat+catOffset)),
+              flashggCats_, fitStatus, &gofProb);
+              
+       /////////////////////////////////////////// 
+       
+              // add
+              allPdfs.insert(pair<string, RooAbsPdf*>(
+                  Form("%s%d", funcType->c_str(), fixedOrder), bkgPdf));
+              storedPdfs.add(*bkgPdf);
+              pdforders.push_back(fixedOrder);
+        
+              // renew pdf index
+              double myNll = 2 * thisNll;
+              if ((myNll + bkgPdf->getVariables()->getSize()) < MinimimNLLSoFar) {
+                  simplebestFitPdfIndex = storedPdfs.getSize()-1;
+                  MinimimNLLSoFar = myNll + bkgPdf->getVariables()->getSize();
+              }
+        
+              std::cout << "[FORCE] Added ModBreitWigner to envelope (order=" << fixedOrder << ")\n";
+        
+              // add debug
+              std::cout << "[DEBUG] Stored PDFs count: " << storedPdfs.getSize() << std::endl;
+              std::cout << "[DEBUG] Current PDFs: ";
+              storedPdfs.Print();
+          
+    
+          // solve conflict
+//          if (outputws->obj("roohist_data_mass_NOTAG")) {
+//            outputws->removeSet("roohist_data_mass_NOTAG"); 
+//            std::cout << "[FIX] Removed duplicate dataset\n";
+//          }
+    
+          continue;  // skip higher order
+      }
+/////////////////////////////////////////////////////////////////////////////
 
 			double thisNll=0.; double prevNll=0.; double chi2=0.; double prob=0.; 
 			int order=1; int prev_order=0; int cache_order=0;
@@ -869,6 +1079,7 @@ int main(int argc, char* argv[]){
 			pdfs.insert(pair<string,RooAbsPdf*>(Form("%s%d",funcType->c_str(),cache_order),cache_pdf));
 
 			int truthOrder = cache_order;
+//      int truthOrder = order;
 
 			// Now run loop to determine functions inside envelope
 			if (saveMultiPdf){
@@ -881,8 +1092,32 @@ int main(int argc, char* argv[]){
 				cache_order=0;
 				std::cout << "[INFO] Determining Envelope Functions for Family " << *funcType << ", cat " << cat << std::endl;
 				std::cout << "[INFO] Upper end Threshold for highest order function " << upperEnvThreshold <<std::endl;
+        
+////////////////////////////////////////////////////////////////
 
-				while (prob<upperEnvThreshold){
+        if (*funcType == "ModBreitWigner") {
+            RooAbsPdf *bkgPdf = getPdf(pdfsModel, *funcType, 0, 
+                        Form("env_pdf_%d_%s", (cat+catOffset), ext.c_str()));
+        
+            if (bkgPdf) {
+                int fitStatus = 0;
+                double thisNll = 0;
+                runFit(bkgPdf, data, &thisNll, &fitStatus, 3);
+            
+                
+//                double gofProb = 1.0; 
+            
+//                if (gofProb > 0.01) {
+                    allPdfs.insert(pair<string, RooAbsPdf*>(
+                        Form("%s0", funcType->c_str()), bkgPdf));
+                    storedPdfs.add(*bkgPdf);
+                    pdforders.push_back(0);
+//                } 
+            }
+            break; 
+        }
+
+				while (prob<upperEnvThreshold&& order < 7){
 					RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,order,Form("env_pdf_%d_%s",(cat+catOffset),ext.c_str()));
 					if (!bkgPdf ){
 						// assume this order is not allowed
@@ -911,7 +1146,16 @@ int main(int argc, char* argv[]){
 
 						if ((prob < upperEnvThreshold) ) { // Looser requirements for the envelope
 
-							if (gofProb > 0.01 || order == truthOrder ) {  // Good looking fit or one of our regular truth functions
+//							if (gofProb > 0.01 || order == truthOrder ) {  // Good looking fit or one of our regular truth functions
+/////////////////////////////////////////////////////////////////
+
+              double threshold = (*funcType == "ModBreitWigner") ? -1 : 0.01; 
+              if (gofProb > threshold || order == truthOrder) {
+                  std::cout << "[ACCEPT] Adding " << bkgPdf->GetName() 
+                  << " (Type=" << *funcType 
+                  << ", gofProb=" << gofProb << ")" << std::endl;                            
+                            
+/////////////////////////////////////////////////////////////////
 
 								std::cout << "[INFO] Adding to Envelope " << bkgPdf->GetName() << " "<< gofProb 
 									<< " 2xNLL + c is " << myNll + bkgPdf->getVariables()->getSize() <<  std::endl;
@@ -964,7 +1208,8 @@ int main(int argc, char* argv[]){
 			RooRealVar nBackground(Form("CMS_hgg_%s_%s_bkgshape_norm",catname.c_str(),ext.c_str()),"nbkg",data->sumEntries(),0,3*data->sumEntries());
 			//nBackground.removeRange(); // bug in roofit will break combine until dev branch brought in
 			//double check the best pdf!
-			int bestFitPdfIndex = getBestFitFunction(pdf,data,&catIndex,!verbose);
+//			int bestFitPdfIndex = getBestFitFunction(pdf,data,&catIndex,!verbose);
+      int bestFitPdfIndex = getBestFitFunction(pdf,data,&catIndex,false);
 			catIndex.setIndex(bestFitPdfIndex);
 			std::cout << "// ------------------------------------------------------------------------- //" <<std::endl; 
 			std::cout << "[INFO] Created MultiPdf " << pdf->GetName() << ", in Category " << cat << " with a total of " << catIndex.numTypes() << " pdfs"<< std::endl;
@@ -974,7 +1219,7 @@ int main(int argc, char* argv[]){
 			std::cout << "[INFO] Simple check of index "<< simplebestFitPdfIndex <<std::endl;
 
 			mass->setBins(nBinsForMass);
-			RooDataHist dataBinned(Form("roohist_data_mass_%s",catname.c_str()),"data",*mass,*dataFull);
+			RooDataHist dataBinned(Form("roohist_data_mass_%s",catname.c_str()),"data",*mass,*dataCut);
 
 			// Save it (also a binned version of the dataset
 			outputws->import(*pdf);
