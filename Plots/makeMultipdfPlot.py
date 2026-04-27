@@ -14,7 +14,7 @@ from collections import OrderedDict as od
 from commonTools import *
 from commonObjects import *
 
-CSVFILE="out_Yields.csv"
+#CSVFILE="out_Yields.csv"
 
 def get_options():
   parser = OptionParser()
@@ -30,6 +30,7 @@ def get_options():
   parser.add_option("--pdfNBins", dest="pdfNBins", default=3200, type='int', help="Number of bins")
   parser.add_option("--translateCats", dest="translateCats", default=None, help="JSON to store cat translations")
   parser.add_option("--inputSignalWSFile", dest="inputSignalWSFile", default=None, help="Input wsig_13TeV RooWorkspace file. If not none this will add signal to plot")
+  parser.add_option("--outCSV", dest="outCSV", default="out_yields.csv", help="Filename for the yields output CSV file")
   
   return parser.parse_args()
 (opt,args) = get_options()
@@ -41,6 +42,8 @@ if opt.inputWSFile is not None:
 
 SB1_low, SB1_high = 110, 115
 SB2_low, SB2_high = 135, 150
+
+yields = [] #FWHM, totalSig, totalBKG, BKGHWHM, SigHWHM
 
 # Define blinding region
 blindingRegion = [float(opt.blindingRegion.split(",")[0]),float(opt.blindingRegion.split(",")[1])]
@@ -341,6 +344,7 @@ if doSignal:
 
   signal_yield_total = hists['spdf'].Integral("width")
   signal_yieldFWHM = hists['spdf'].Integral(lowBin, highBin, "width")
+  bkg_yield_total = hists["%s_nBins"%bpdf_bf_name].Integral("width")
   bkg_yieldFWHM = hists["%s_nBins"%bpdf_bf_name].Integral(bkg_lowBin, bkg_highBin, "width")
   #print(f"Signal Integral: {sigIntTot} | Signal Integral FWHM: {sigIntFWHM}")
   print(f'-------------- Signal Yield Total: {signal_yield_total} | Signal Yield FHWM: {signal_yieldFWHM} | Bkg Yield FWHM: {bkg_yieldFWHM} --------------')
@@ -351,7 +355,7 @@ yieldText.SetTextAlign(11)
 yieldText.SetNDC()
 yieldText.SetTextSize(0.03)
 yieldText.DrawLatex(0.17,0.65,"S = %.2f | S_FWHM = %.2f | B_FWHM = %.2f "%(signal_yield_total, signal_yieldFWHM, bkg_yieldFWHM))
-
+yields = {'Category': Translate(cat,translateCats),'FWHM': (fwhm_high-fwhm_low), 'Total Sig': signal_yield_total, 'Total Bkg': bkg_yield_total, 'Sig FWHM': signal_yieldFWHM, 'Bkg FWHM': bkg_yieldFWHM}
 colourOptions=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 bnames = list(bpdfs.keys())
 for bidx, bname in enumerate(bnames):
@@ -431,3 +435,12 @@ if not os.path.isdir(f"plots{ext_str}"):
   os.system(f"mkdir -p plots{ext_str}")
 canv.SaveAs(f"plots{ext_str}/multipdf_plot_%s.pdf"%(cat))
 canv.SaveAs(f"plots{ext_str}/multipdf_plot_%s.png"%(cat))
+
+csv_exists = os.path.isfile(opt.outCSV)
+
+with open(opt.outCSV, mode='a', newline='') as f:
+  writer = csv.DictWriter(f, fieldnames=yields.keys())
+
+  if not csv_exists:
+    writer.writeheader()
+  writer.writerow(yields)
