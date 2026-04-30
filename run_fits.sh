@@ -72,7 +72,7 @@ for cat in VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5 ggHcat1 ggHcat2 ggHcat3 ggHca
     --cat ${cat} \
     --ext tutorial \
     --mass 125.38 \
-    --nBins 40 \
+    --nBins 160 \
     --inputSignalWSFile ../Signal/outdir_packaged/CMS-HGG_sigfit_packaged_${cat}.root \
     --outCSV ${CSVFILE}
   

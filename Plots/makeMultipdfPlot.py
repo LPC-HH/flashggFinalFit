@@ -26,7 +26,7 @@ def get_options():
   parser.add_option("--ext", dest="ext", default='', help="Extension for saving")
   parser.add_option("--mass", dest="mass", default=125.38, help="Higgs mass")
   parser.add_option("--xvar", dest="xvar", default="CMS_hgg_mass,m_{#mu#mu},GeV", help="X-variable: name,title,units")
-  parser.add_option("--nBins", dest="nBins", default=160, type='int', help="1GeV per bin, Number of bins")
+  parser.add_option("--nBins", dest="nBins", default=160, type='int', help=" 0.25 GeV per bin, Number of bins")
   parser.add_option("--pdfNBins", dest="pdfNBins", default=3200, type='int', help="Number of bins")
   parser.add_option("--translateCats", dest="translateCats", default=None, help="JSON to store cat translations")
   parser.add_option("--inputSignalWSFile", dest="inputSignalWSFile", default=None, help="Input wsig_13TeV RooWorkspace file. If not none this will add signal to plot")
@@ -113,25 +113,36 @@ print("data_sb_integral:", data_sb_integral)
 print("\n\n\n\n")
 
 for bname, bpdf in list(bpdfs.items()):
+  #print("pdfBins: %s | xMin: %s | xMax: %s"%(opt.pdfNBins,xvar.getMin(),xvar.getMax()))
   hists[bname] = bpdf.createHistogram("h_%s"%bname,xvar,ROOT.RooFit.Binning(opt.pdfNBins,xvar.getMin(),xvar.getMax()))
   #hists[bname].Scale(norm)
   pdf_sb_integral = bpdf.createIntegral(ROOT.RooArgSet(xvar),ROOT.RooFit.NormSet(xvar),ROOT.RooFit.Range("SB1,SB2")).getVal()
   scale = data_sb_integral / pdf_sb_integral 
-  print("\n\n\n\n")
-  print("data_sb_integral:", data_sb_integral)
-  print("pdf_sb_integral:", pdf_sb_integral)
-  print("scale:", scale)
-  print("\n\n\n\n")
+  #print("\n\n\n\n%s"%bname)
+  #print("data_sb_integral:", data_sb_integral)
+  #print("pdf_sb_integral:", pdf_sb_integral)
+  #print("simple pdf int: ", hists[bname].Integral("width"))
+  #print("simple data int: ", hists['data'].Integral("width"))
+  #print("simple data int (no norm): ", hists['data'].Integral())
+  #print("data bw: ", hists['data'].GetXaxis().GetBinWidth(1))
+  #print("data bc: ", hists['data'].GetBinContent(1))
+  #print("scale:", scale)
   hists[bname].Scale(scale*(float(opt.pdfNBins)/float(opt.nBins)))
+  #print("simple pdf int post: ", hists[bname].Integral("width"))
+  #print("simple pdf int post (no norm): ", hists[bname].Integral())
+  print("\n\n\n\n")
 
   if bname == bpdf_bf_name:
     hists["%s_nBins"%bname] = bpdf.createHistogram("h_%s_nBins"%bname,xvar,ROOT.RooFit.Binning(opt.nBins,xvar.getMin(),xvar.getMax()))
     hists["%s_nBins"%bname].Scale(scale)
 
-# Scale pdf histograms to match data
+#Scale pdf histograms to match data
 xvar_range = int(xvar.getBinning().highBound()-xvar.getBinning().lowBound())
+print("XVAR RANGE: ", xvar_range)
 if opt.nBins != xvar_range:
-  for h in list(hists.values()): h.Scale(float(xvar_range)/opt.nBins)
+  for name, h in hists.items(): 
+    #if(name != 'data'):
+    h.Scale(float(xvar_range)/opt.nBins)
   
 # ----------------------------------
 # Convert to Events / GeV  
@@ -140,7 +151,17 @@ binWidth = (xvar.getMax() - xvar.getMin()) / float(opt.nBins)
 print("[INFO] binWidth =", binWidth)
 
 for name, h in hists.items():
+    #bw = h.GetXaxis().GetBinWidth(1)
+    #bc = h.GetBinContent(1)
+    #print("simple pdf int pre: ", h.Integral("width"))
+    #print(name + " | bw: " + str(bw) + " | bc: " + str(bc))
+    #if name == 'data':
+    #  continue
     h.Scale(1.0 / binWidth)
+    #bw = h.GetXaxis().GetBinWidth(1)
+    #bc = h.GetBinContent(1)
+    #print("simple pdf int post: ", h.Integral("width"))
+    #print(name + " | bwp: " + str(bw) + " | bcp: " + str(bc) + "\n\n")
 
 # Extract data histogram
 
@@ -264,7 +285,7 @@ h_axes.SetTitle("")
 h_axes.GetXaxis().SetTitle("")
 h_axes.GetXaxis().SetLabelSize(0)
 h_axes.GetYaxis().SetTitleSize(0.05)
-h_axes.GetYaxis().SetTitle("Events / GeV")
+h_axes.GetYaxis().SetTitle("Events / %s GeV"%binWidth)
 h_axes.GetYaxis().SetTitleOffset(1.1)
 h_axes.GetYaxis().SetLabelSize(0.035)
 h_axes.GetYaxis().SetLabelOffset(0.007)
@@ -342,11 +363,20 @@ if doSignal:
     #bkg_yieldFWHM += bkgval
     #print(f"-------------- BKG val: {bkgval} in bin: {ibin} @ Mmumu: {bcenter} --------------")
 
+  '''bkg_man_integral = 0
+  bw = hists['%s'%bpdf_bf_name].GetXaxis().GetBinWidth(1)
+  for ibin in range(1, hists['%s'%bpdf_bf_name].GetNbinsX()+1):
+      bcenter = hists['%s'%bpdf_bf_name].GetBinCenter(ibin)
+      bkg_man_integral += hists['%s'%bpdf_bf_name].GetBinContent(ibin)
+
+  bkg_man_integral *= bw / binWidth'''
+
   signal_yield_total = hists['spdf'].Integral("width")
   signal_yieldFWHM = hists['spdf'].Integral(lowBin, highBin, "width")
-  bkg_yield_total = hists["%s"%bpdf_bf_name].Integral("width")
-  bkg_yieldFWHM = hists["%s"%bpdf_bf_name].Integral(bkg_lowBin, bkg_highBin, "width")
+  bkg_yield_total = hists["%s"%bpdf_bf_name].Integral("width") / binWidth
+  bkg_yieldFWHM = hists["%s"%bpdf_bf_name].Integral(bkg_lowBin, bkg_highBin, "width") / binWidth
   #print(f"Signal Integral: {sigIntTot} | Signal Integral FWHM: {sigIntFWHM}")
+  #print("BKG MAN INT: ", bkg_man_integral)
   print(f'-------------- Signal Yield Total: {signal_yield_total} | Signal Yield FHWM: {signal_yieldFWHM} --------------\n-------------- Bkg Yield Total: {bkg_yield_total} | Bkg Yield FWHM: {bkg_yieldFWHM} --------------')
   hists['spdf'].Draw("Hist same cf")
 yieldText = ROOT.TLatex()
