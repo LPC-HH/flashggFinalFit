@@ -1238,25 +1238,52 @@ int main(int argc, char* argv[]){
 			outputfile->Close();	
 		}
 
-		FILE *dfile = fopen(datfile.c_str(),"w");
-		cout << "[RESULT] Recommended options" << endl;
+        std::string datdir = datfile.substr(0, datfile.find_last_of("/"));
 
-		for (int cat=startingCategory; cat<ncats; cat++){
-			cout << "Cat " << cat << endl;
-			fprintf(dfile,"cat=%d\n",(cat+catOffset)); 
-			for (map<string,int>::iterator it=choices_vec[cat-startingCategory].begin(); it!=choices_vec[cat-startingCategory].end(); it++){
-				cout << "\t" << it->first << " - " << it->second << endl;
-				fprintf(dfile,"truth=%s:%d:%s%d\n",it->first.c_str(),it->second,namingMap[it->first].c_str(),it->second);
-			}
-			for (map<string,std::vector<int> >::iterator it=choices_envelope_vec[cat-startingCategory].begin(); it!=choices_envelope_vec[cat-startingCategory].end(); it++){
-				std::vector<int> ords = it->second;
-				for (std::vector<int>::iterator ordit=ords.begin(); ordit!=ords.end(); ordit++){
-					fprintf(dfile,"paul=%s:%d:%s%d\n",it->first.c_str(),*ordit,namingMap[it->first].c_str(),*ordit);
-				}
-			}
-			fprintf(dfile,"\n");
-		}
-		inFile->Close();
+        if (datdir != datfile) {
+            std::string cmd = "mkdir -p " + datdir;
+            int ret = system(cmd.c_str());
+            if (ret != 0) {
+                std::cerr << "[error] could not create directory: " << datdir
+                          << std::endl;
+                return 1;
+            }
+        }
 
-		return 0;
-	}
+        FILE *dfile = fopen(datfile.c_str(), "w");
+        if (!dfile) {
+            std::cerr << "[error] cannot open datfile for writing: " << datfile
+                      << std::endl;
+            inFile->Close();
+            return 1;
+        }
+
+        cout << "[RESULT] Recommended options" << endl;
+
+        for (int cat = startingCategory; cat < ncats; cat++) {
+            cout << "Cat " << cat << endl;
+            fprintf(dfile, "cat=%d\n", (cat + catOffset));
+            for (map<string, int>::iterator it =
+                     choices_vec[cat - startingCategory].begin();
+                 it != choices_vec[cat - startingCategory].end(); it++) {
+                cout << "\t" << it->first << " - " << it->second << endl;
+                fprintf(dfile, "truth=%s:%d:%s%d\n", it->first.c_str(), it->second,
+                        namingMap[it->first].c_str(), it->second);
+            }
+            for (map<string, std::vector<int>>::iterator it =
+                     choices_envelope_vec[cat - startingCategory].begin();
+                 it != choices_envelope_vec[cat - startingCategory].end(); it++) {
+                std::vector<int> ords = it->second;
+                for (std::vector<int>::iterator ordit = ords.begin();
+                     ordit != ords.end(); ordit++) {
+                    fprintf(dfile, "paul=%s:%d:%s%d\n", it->first.c_str(), *ordit,
+                            namingMap[it->first].c_str(), *ordit);
+                }
+            }
+            fprintf(dfile, "\n");
+        }
+        fclose(dfile);
+        inFile->Close();
+
+        return 0;
+}
