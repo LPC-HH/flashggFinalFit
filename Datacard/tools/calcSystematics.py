@@ -20,9 +20,17 @@ def addConstantSyst(sd,_syst,options):
     sd[_syst['name']] = '-'
     if fromJson:
       sd.loc[(sd['type']=='sig'),_syst['name']] = sd[(sd['type']=='sig')].apply(lambda x: getValueFromJson(x,uval,_syst['name']), axis=1)
-    else:
+    #else:
       # If signal and not NOTAG then set value
-      sd.loc[(sd['type']=='sig')&(~sd['cat'].str.contains("NOTAG")), _syst['name']] = _syst['value']
+      #sd.loc[(sd['type']=='sig')&(~sd['cat'].str.contains("NOTAG")), _syst['name']] = _syst['value']
+    else:
+      mask = (sd['type']=='sig') & (~sd['cat'].str.contains("NOTAG"))
+
+      if 'valueByCat' in _syst:
+        sd.loc[mask, _syst['name']] = sd[mask].apply(
+        lambda x: _syst['valueByCat'].get(x['cat'], '-'),axis=1)
+      else:
+        sd.loc[mask, _syst['name']] = _syst['value']
 
   # Partial correlation
   elif _syst['correlateAcrossYears'] == -1:
@@ -40,17 +48,72 @@ def addConstantSyst(sd,_syst,options):
 
   return sd
 
-def getValueFromJson(row,uncertainties,sname):
-  # uncertainties is a dict of the form proc:{sname:X}
-  p = re.sub("_2016_%s"%decayMode,"",row['proc'])
-  p = re.sub("_2017_%s"%decayMode,"",p)
-  p = re.sub("_2018_%s"%decayMode,"",p)
-  p = re.sub("_2022preEE_%s"%decayMode,"",p)
-  p = re.sub("_2022postEE_%s"%decayMode,"",p)
-  if p in uncertainties: 
-    if type(uncertainties[p][sname])==list: return uncertainties[p][sname]
-    else: return [uncertainties[p][sname]]
-  else: return '-'
+def _formatSystValue(v):
+  """
+  Datacard writer expects:
+    '-'        for no effect
+    [x]        for symmetric lnN
+    [down, up] for asymmetric lnN
+  """
+  if v == '-':
+    return '-'
+  if type(v) == list:
+    return v
+  return [v]
+
+
+def getValueFromJson(row, uncertainties, sname):
+ # uncertainties is a dict of the form proc:{sname:X}
+  decaymode_hgg = "hgg"
+  p = re.sub("_2016_%s" % decaymode_hgg, "", row["proc"])
+  p = re.sub("_2017_%s" % decaymode_hgg, "", p)
+  p = re.sub("_2018_%s" % decaymode_hgg, "", p)
+  p = re.sub("_2022preee_%s" % decaymode_hgg, "", p)
+  p = re.sub("_2022postee_%s" % decaymode_hgg, "", p)
+  p = re.sub("_combined_%s" % decaymode_hgg, "", p)
+  cat = row['cat']
+
+  # Process not in JSON: no effect.
+  if p not in uncertainties:
+    return '-'
+
+  proc_unc = uncertainties[p]
+
+  # First priority: category-specific value.
+  if "categories" in proc_unc:
+    cat_unc = proc_unc["categories"]
+
+    if cat in cat_unc and sname in cat_unc[cat]:
+      return _formatSystValue(cat_unc[cat][sname])
+
+  # Second priority: global process value.
+  # This is the default used for all categories not specified above.
+  if sname in proc_unc:
+    return _formatSystValue(proc_unc[sname])
+
+  # If no global value exists, then only specified categories receive the nuisance.
+  return '-'
+
+
+
+
+# def getValueFromJson(row, uncertainties, sname):
+    # # uncertainties is a dict of the form proc:{sname:X}
+    # decaymode_hgg = "hgg"
+    # p = re.sub("_2016_%s" % decaymode_hgg, "", row["proc"])
+    # p = re.sub("_2017_%s" % decaymode_hgg, "", p)
+    # p = re.sub("_2018_%s" % decaymode_hgg, "", p)
+    # p = re.sub("_2022preee_%s" % decaymode_hgg, "", p)
+    # p = re.sub("_2022postee_%s" % decaymode_hgg, "", p)
+    # p = re.sub("_combined_%s" % decaymode_hgg, "", p)
+    # if p in uncertainties:
+        # if type(uncertainties[p][sname]) == list:
+            # return uncertainties[p][sname]
+        # else:
+            # return [uncertainties[p][sname]]
+    # else:
+        # return "-"
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Function to return type of systematic: to be used by factory functions

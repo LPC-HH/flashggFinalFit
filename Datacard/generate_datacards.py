@@ -46,6 +46,7 @@ def make_datacard() -> None:
         "--doTrueYield",
         "--skipCOWCorr",
         "--doMCStatUncertainty",
+        "--doSystematic",
         "--saveDataFrame",
         "--output", "Datacard_tutorial",
     ])
@@ -91,6 +92,13 @@ def main() -> None:
     # --- ggH ---
     ggh_cats = ["ggHcat1", "ggHcat2", "ggHcat3", "ggHcat4", "ggHcat5"]
     ggh_path = f"{root_io}/tuples/split_tuples/ggH/ws_GG2H"
+    ggh_path = f"../inputs/ws_signal/"
+
+    vbf_cats = ["VBFcat1", "VBFcat2", "VBFcat3", "VBFcat4", "VBFcat5"]
+    vbf_path = f"{root_io}/tuples/split_tuples/VBF/ws_VBF"
+    vbf_path = f"../inputs/ws_signal/"
+
+
     print("---------------------------- ggH -----------------------------------")
     for cat in ggh_cats:
         run_datacard(cat=cat, channel="ggH", ws_path=ggh_path)
@@ -113,8 +121,8 @@ def main() -> None:
     rm_glob("yields_tutorial/*.pkl")
 
     # --- VBF ---
-    vbf_cats = ["VBFcat1", "VBFcat2", "VBFcat3", "VBFcat4", "VBFcat5"]
-    vbf_path = f"{root_io}/tuples/split_tuples/VBF/ws_VBF"
+    #vbf_cats = ["VBFcat1", "VBFcat2", "VBFcat3", "VBFcat4", "VBFcat5"]
+    #vbf_path = f"{root_io}/tuples/split_tuples/VBF/ws_VBF"
 
     print("---------------------------- VBF -----------------------------------")
     for cat in vbf_cats:
