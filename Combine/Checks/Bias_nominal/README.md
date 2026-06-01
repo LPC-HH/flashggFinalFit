@@ -61,3 +61,9 @@ Here is a list of the common options:
  * `--poi`: if your parameter of interest is called something other than `r`, say so here.
  * `--split`: default number of toys to be thrown or fits to be performed in one go. Set to 500 but may need to be lowered for memory reasons if you have a more complicated fit. 
  * `--selectFunction`: you can specify a string here to only select certain functions for these studies (e.g. `bern` to match all Bernstein polynomials, `exp1` to match just the first-order exponential).
+
+## Plotting
+After the bias study is run, to generate the bias study plots, run
+```
+python3 plotBiasResults.py -c <outputCSVname>.csv
+```
