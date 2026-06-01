@@ -38,12 +38,18 @@ The three steps can be run in one go, but it's probably safer to run them one-by
 Here is an example:
 
 ```
-./RunBiasStudy.py -d Datacard_mu_ggH_cat0.root -t 
-./RunBiasStudy.py -d Datacard_mu_ggH_cat0.root -f -c "--cminDefaultMinimizerStrategy 0 --X-rtd MINIMIZER_freezeDisassociatedParams --X-rtd MINIMIZER_multiMin_hideConstants --X-rtd MINIMIZER_multiMin_maskConstraints --X-rtd MINIMIZER_multiMin_maskChannels=2 --freezeParameters MH" 
-./RunBiasStudy.py -d Datacard_mu_ggH_cat0.root -p --gaussianFit
+python3 RunBiasStudy.py -d Datacard_mu_ggH_cat0.root -t 
+python3 RunBiasStudy.py -d Datacard_mu_ggH_cat0.root -f -c "--cminDefaultMinimizerStrategy 0 --X-rtd MINIMIZER_freezeDisassociatedParams --X-rtd MINIMIZER_multiMin_hideConstants --X-rtd MINIMIZER_multiMin_maskConstraints --X-rtd MINIMIZER_multiMin_maskChannels=2 --freezeParameters MH" 
+python3 RunBiasStudy.py -d Datacard_mu_ggH_cat0.root -p --gaussianFit
 ```
 The options for the second step are passed to combine; these are recommended to get the fit to converge. 
 The additional option on the plotting is fairly self-explanatory; it adds a gaussian fit to the output plot.
+
+Intead of running step-by-step, you can run the entire bias test at once with the run_Bias_nominal.sh script. For this script to run properly, the datacards by category need to have already been created in  ../../Datacard_tutorial_${cat}_mu_inclusive.root. In the bash script, the categories are looped over which may also need to be adjusted if the categorization has changed.
+
+```
+bash run_Bias_nominal.sh
+```
 
 ## More options
 
