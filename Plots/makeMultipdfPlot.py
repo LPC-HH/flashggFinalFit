@@ -21,7 +21,7 @@ def get_options():
   parser.add_option("--inputWSFile", dest="inputWSFile", default=None, help="Input multipdf RooWorkspace file")
   parser.add_option("--cat", dest="cat", default="RECO_0J_PTH_0_10_Tag0", help="Analysis category")
   parser.add_option("--unblind", dest="unblind", default=False, action="store_true", help="Unblind signal region")
-  parser.add_option("--blindingRegion", dest="blindingRegion", default="115,135", help="Region in xvar to blind")
+  parser.add_option("--blindingRegion", dest="blindingRegion", default="120,130", help="Region in xvar to blind")
   parser.add_option("--doZeroes", dest="doZeroes", default=False, action="store_true", help="Add error of unity to zero bins to show on plot")
   parser.add_option("--ext", dest="ext", default='', help="Extension for saving")
   parser.add_option("--mass", dest="mass", default=125.38, help="Higgs mass")
@@ -40,8 +40,8 @@ if opt.inputWSFile is not None:
   f = ROOT.TFile(opt.inputWSFile)
   w = f.Get("multipdf")
 
-SB1_low, SB1_high = 110, 115
-SB2_low, SB2_high = 135, 150
+SB1_low, SB1_high = 110, 120
+SB2_low, SB2_high = 130, 150
 
 yields = [] #FWHM, totalSig, totalBKG, BKGHWHM, SigHWHM
 
@@ -309,7 +309,11 @@ leg.SetTextSize(0.025)
 #if doSignal: leg.AddEntry(hists['spdf'],"#scale[1.5]{S model}","fl")
 #leg.AddEntry(0,"","")
 for bname in bpdfs: 
-  if "bern" in bname: fname = "#bf{Bernstein polynomial}"
+  if "dytbern" in bname: fname = "#bf{DY Theory core with exp(Bernstein)}"
+  elif "dytcheb" in bname: fname = "#bf{DY Theory core with exp(Chebychev)}"
+  elif "dytpow" in bname: fname = "#bf{DY Theory core with exp(Powerlaw)}"
+  elif "dytlau" in bname: fname = "#bf{DY Theory core with exp(Laurent)}"
+  elif "bern" in bname: fname = "#bf{Bernstein polynomial}"
   elif "exp" in bname: fname = "#bf{Sum of exponentials}"
   elif "pow" in bname: fname = "#bf{Sum of power law functions}"
   elif "lau" in bname: fname = "#bf{Laurent series}"
@@ -397,6 +401,15 @@ hists['data'].SetMarkerStyle(20)
 hists['data'].SetMarkerColor(1)
 hists['data'].SetLineColor(1)
 hists['data'].Draw("Same PE")
+# --- Draw SB boundaries ---
+line_SB1 = ROOT.TLine(SB1_high, h_axes.GetMinimum(), SB1_high, h_axes.GetMaximum())
+line_SB2 = ROOT.TLine(SB2_low, h_axes.GetMinimum(), SB2_low, h_axes.GetMaximum())
+
+for l in [line_SB1, line_SB2]:
+    l.SetLineStyle(2)   # dashed
+    l.SetLineWidth(2)
+    l.SetLineColor(ROOT.kBlack)
+    l.Draw("same")
 
 
 # Add TLatex to plot
