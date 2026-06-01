@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from biasUtils import *
+from os import path, system
 
 from optparse import OptionParser
 parser = OptionParser()
@@ -56,7 +57,7 @@ for ipdf in range(multipdf.getNumPdfs()):
     indexNameMap[ipdf] = multipdf.getPdf(ipdf).GetName()
 
 if opts.toys:
-    if not path.isdir('BiasToysn'): system('mkdir -p BiasToys')
+    if not path.isdir('BiasToys'): system('mkdir -p BiasToys')
     toyCmdBase = 'combine -m %.4f -d %s -M GenerateOnly --expectSignal %.4f -s %g --saveToys %s '%(opts.mH, opts.datacard, opts.expectSignal, opts.seed, opts.combineOptions)
     for ipdf,pdfName in indexNameMap.items():
         name = shortName(pdfName)
@@ -88,38 +89,94 @@ if opts.fits:
             system('mv higgsCombine_%s* %s'%(name, fitName(name)))
 
 if opts.plots:
-    if not path.isdir('BiasPlots'): system('mkdir -p BiasPlots')
+    import numpy as np
+
+    if not path.isdir('BiasPlots'):
+        system('mkdir -p BiasPlots')
+
     for ipdf,pdfName in indexNameMap.items():
+
         name = shortName(pdfName)
+
         tfile = r.TFile(fitName(name))
         tree = tfile.Get('limit')
-        pullHist = r.TH1F('pullsForTruth_%s'%name, 'Pull distribution using the envelope to fit %s'%name, 80, -4., 4.)
+
+        pullHist = r.TH1F(
+            'pullsForTruth_%s'%name,
+            'Pull distribution using the envelope to fit %s'%name,
+            80, -4., 4.
+        )
+
         pullHist.GetXaxis().SetTitle('Pull')
         pullHist.GetYaxis().SetTitle('Entries')
+
+        # store values
+        diffValues = []
+        pullValues = []
+
         for itoy in range(opts.nToys):
+
             tree.GetEntry(3*itoy)
-            if not getattr(tree,'quantileExpected')==-1: 
-                raiseFailError(itoy,True) 
+
+            if not getattr(tree,'quantileExpected') == -1:
+                raiseFailError(itoy,True)
                 continue
+
             bf = getattr(tree, 'r')
+
             tree.GetEntry(3*itoy+1)
-            if not abs(getattr(tree,'quantileExpected')--0.32)<0.001: 
-                raiseFailError(itoy,True) 
+
+            if not abs(getattr(tree,'quantileExpected') + 0.32) < 0.001:
+                raiseFailError(itoy,True)
                 continue
+
             lo = getattr(tree, 'r')
+
             tree.GetEntry(3*itoy+2)
-            if not abs(getattr(tree,'quantileExpected')-0.32)<0.001: 
-                raiseFailError(itoy,True) 
+
+            if not abs(getattr(tree,'quantileExpected') - 0.32) < 0.001:
+                raiseFailError(itoy,True)
                 continue
+
             hi = getattr(tree, 'r')
+
             diff = bf - opts.expectSignal
             unc = 0.5 * (hi-lo)
-            if unc > 0.: 
-                pullHist.Fill(diff/unc)
+
+            if unc > 0.:
+
+                pull = diff/unc
+
+                diffValues.append(diff)
+                pullValues.append(pull)
+
+                pullHist.Fill(pull)
+
+        # calculate statistics
+        mean_diff = np.mean(diffValues)
+        median_diff = np.median(diffValues)
+
+        mean_pull = np.mean(pullValues)
+        median_pull = np.median(pullValues)
+
         canv = r.TCanvas()
+
         pullHist.Draw()
+
         if opts.gaussianFit:
-           r.gStyle.SetOptFit(111)
-           pullHist.Fit('gaus')
+            r.gStyle.SetOptFit(111)
+            pullHist.Fit('gaus')
+
+        # draw text
+        latex = r.TLatex()
+        latex.SetNDC()
+        latex.SetTextSize(0.03)
+
+        latex.DrawLatex(0.15, 0.85, 'Mean(diff) = %.4f' % mean_diff)
+        latex.DrawLatex(0.15, 0.80, 'Median(diff) = %.4f' % median_diff)
+
+        latex.DrawLatex(0.15, 0.73, 'Mean(pull) = %.4f' % mean_pull)
+        latex.DrawLatex(0.15, 0.68, 'Median(pull) = %.4f' % median_pull)
+
         canv.SaveAs('%s.pdf'%plotName(name))
         canv.SaveAs('%s.png'%plotName(name))

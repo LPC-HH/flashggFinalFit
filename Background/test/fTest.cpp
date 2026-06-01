@@ -58,9 +58,14 @@ int mgg_low =110;
 int mgg_high =150;
 int nBinsForMass = 4*(mgg_high-mgg_low);
 double SB1_low = 110;
-double SB1_high = 115;
-double SB2_low = 135;
+double SB1_high = 120;
+double SB2_low = 130;
 double SB2_high = 150;
+
+double TEST1_low = 118;
+double TEST1_high = 120;
+double TEST2_low = 130;
+double TEST2_high = 133;
 
 RooRealVar *intLumi_ = new RooRealVar("IntLumi","hacked int lumi", 1000.);
 
@@ -69,15 +74,19 @@ TRandom3 *RandomGen = new TRandom3();
 
 RooAbsPdf* getPdf(PdfModelBuilder &pdfsModel, string type, int order, const char* ext=""){
   
-  if (type=="Bernstein") return pdfsModel.getBernstein(Form("%s_bern%d",ext,order),order); 
+  if (type=="Bernstein") return pdfsModel.getDYBernstein(Form("%s_bern%d",ext,order),order); 
   else if (type=="Chebychev") return pdfsModel.getChebychev(Form("%s_cheb%d",ext,order),order); 
-  else if (type=="Exponential") return pdfsModel.getExponentialSingle(Form("%s_exp%d",ext,order),order); 
-  else if (type=="PowerLaw") return pdfsModel.getPowerLawSingle(Form("%s_pow%d",ext,order),order); 
-  else if (type=="Laurent") return pdfsModel.getLaurentSeries(Form("%s_lau%d",ext,order),order); 
+  else if (type=="Exponential") return pdfsModel.getDYTheory(Form("%s_exp%d",ext,order),order); 
+  else if (type=="PowerLaw") return pdfsModel.getDYPowerLaw(Form("%s_pow%d",ext,order),order); 
+  else if (type=="Laurent") return pdfsModel.getDYLaurent(Form("%s_lau%d",ext,order),order); 
   else if (type=="ModBreitWigner") {
-    return pdfsModel.getModBreitWigner(Form("%s_mBW2", ext));
+    return pdfsModel.getModBreitWigner(Form("%s_mBW3", ext));
   }
   else if (type=="DYTheory") return pdfsModel.getDYTheory(Form("%s_dyt%d",ext,order),order); 
+  else if (type=="DYTheory_cheb") return pdfsModel.getDYTheory(Form("%s_dytcheb%d",ext,order),order); 
+  else if (type=="DYTheory_pow") return pdfsModel.getDYPowerLaw(Form("%s_dytpow%d",ext,order),order); 
+  else if (type=="DYTheory_lau") return pdfsModel.getDYLaurent(Form("%s_dytlau%d",ext,order),order); 
+  else if (type=="DYTheory_bern") return pdfsModel.getDYBernstein(Form("%s_dytbern%d",ext,order),order); 
   else {
     cerr << "[ERROR] -- getPdf() -- type " << type << " not recognised." << endl;
     return NULL;
@@ -275,7 +284,7 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   delete iter;
 
   // -----------------------------
-  // 1. 画图（用于取 hist �?curve�?  // -----------------------------
+  // 1. 画图（用于取 hist �?curve�?  // -----------------------------
   RooPlot *plot_chi2 = mass->frame();
 
   data->plotOn(plot_chi2,
@@ -285,9 +294,9 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   mpdf->plotOn(plot_chi2,
                Name("pdf"),
                RooFit::Range("full"),
-               RooFit::NormRange("SB1,SB2"));  //  关键：SB归一�?
+               RooFit::NormRange("SB1,SB2"));  //  关键：SB归一�?
   // -----------------------------
-  // 2. �?histogram �?curve
+  // 2. �?histogram �?curve
   // -----------------------------
   RooHist *hist  = (RooHist*)plot_chi2->getObject(0);
   RooCurve *curve = (RooCurve*)plot_chi2->getObject(1);
@@ -298,33 +307,57 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   }
 
   // -----------------------------
-  // 3. 手动计算 chi2（只�?sideband�?  // -----------------------------
-  double chi2_sum = 0;
-  int nBins_used = 0;
+  // 3. 手动计算 chi2（多区域�?  // -----------------------------
+  double chi2_fit = 0;
+  double chi2_test = 0;
+  double chi2_sbtest = 0;
+
+  int n_fit = 0;
+  int n_test = 0;
+  int n_sbtest = 0;
 
   for (int i = 0; i < hist->GetN(); i++) {
 
     double x, y;
     hist->GetPoint(i, x, y);
 
-    // 跳过非SB区域
-    if ( !( (x >= SB1_low && x <= SB1_high) ||
-            (x >= SB2_low && x <= SB2_high) ) ) continue;
-
     if (y <= 0) continue;
 
     double fit_val = curve->interpolate(x);
-
     double chi2_bin = (y - fit_val)*(y - fit_val) / y;
 
-    chi2_sum += chi2_bin;
-    nBins_used++;
+    bool in_fit =
+        (x >= SB1_low && x <= SB1_high) ||
+        (x >= SB2_low && x <= SB2_high);
 
-    // ---- debug ----
+    bool in_test =
+        (x >= TEST1_low && x <= TEST1_high) ||
+        (x >= TEST2_low && x <= TEST2_high);
+
+    // --- accumulate ---
+    if (in_fit) {
+      chi2_fit += chi2_bin;
+      n_fit++;
+    }
+
+    if (in_test) {
+      chi2_test += chi2_bin;
+      n_test++;
+    }
+
+    if (in_fit || in_test) {
+      chi2_sbtest += chi2_bin;
+      n_sbtest++;
+    }
+
+    // debug
     std::cout << "[BIN] x=" << std::fixed << std::setprecision(3) << x
               << " data=" << y
               << " fit=" << fit_val
-              << " chi2_bin=" << chi2_bin
+              << " chi2=" << chi2_bin
+              << " region="
+              << (in_fit ? "FIT " : "")
+              << (in_test ? "TEST" : "")
               << std::endl;
   }
 
@@ -332,9 +365,12 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   // 4. ndof
   // -----------------------------
   int np = mpdf->getParameters(*data)->getSize();
-  int ndof = nBins_used - np;
 
-  if (ndof <= 0) {
+  int ndof_fit = n_fit - np;
+  int ndof_test = n_test;
+  int ndof_sbtest = n_sbtest - np;
+
+  if (ndof_fit <= 0) {
     std::cout << "[WARNING] ndof <= 0, invalid GOF!" << std::endl;
     return -1;
   }
@@ -342,21 +378,38 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   // -----------------------------
   // 5. p-value
   // -----------------------------
-  double prob = TMath::Prob(chi2_sum, ndof);
+  double prob_fit    = (ndof_fit    > 0) ? TMath::Prob(chi2_fit,    ndof_fit)    : -1;
+  double prob_test   = (ndof_test   > 0) ? TMath::Prob(chi2_test,   ndof_test)   : -1;
+  double prob_sbtest = (ndof_sbtest > 0) ? TMath::Prob(chi2_sbtest, ndof_sbtest) : -1;
 
   // -----------------------------
   // 6. 输出
   // -----------------------------
-  std::cout << "[RESULT] chi2 = " << chi2_sum << std::endl;
-  std::cout << "[RESULT] nBins_used = " << nBins_used << std::endl;
-  std::cout << "[RESULT] np = " << np << std::endl;
-  std::cout << "[RESULT] ndof = " << ndof << std::endl;
-  std::cout << "[RESULT] chi2/ndof = " << chi2_sum/ndof << std::endl;
-  std::cout << "[RESULT] p-value = " << prob << std::endl;
+  std::cout << "\n========== GOF SUMMARY ==========" << std::endl;
 
+  std::cout << "[FIT SB] "
+            << "chi2=" << chi2_fit
+            << " ndof=" << ndof_fit
+            << " chi2/ndof=" << (ndof_fit>0 ? chi2_fit/ndof_fit : -1)
+            << " p=" << prob_fit << std::endl;
+
+  std::cout << "[TEST BAND] "
+            << "chi2=" << chi2_test
+            << " ndof=" << ndof_test
+            << " chi2/ndof=" << (ndof_test>0 ? chi2_test/ndof_test : -1)
+            << " p=" << prob_test << std::endl;
+
+  std::cout << "[SB + TEST] "
+            << "chi2=" << chi2_sbtest
+            << " ndof=" << ndof_sbtest
+            << " chi2/ndof=" << (ndof_sbtest>0 ? chi2_sbtest/ndof_sbtest : -1)
+            << " p=" << prob_sbtest << std::endl;
+
+  std::cout << "=================================\n" << std::endl;
+  
   delete plot_chi2;
 
-  return prob;
+  return prob_fit;
 }
 
 void plot(RooRealVar *mass, RooAbsPdf *pdf, RooAbsData *data, string name,vector<string> flashggCats_, int status, double *prob){
@@ -384,6 +437,7 @@ void plot(RooRealVar *mass, RooAbsPdf *pdf, RooAbsData *data, string name,vector
   TCanvas *canv = new TCanvas();
   pdf->plotOn(plot,RooFit::NormRange("SB1,SB2"));//,RooFit::NormRange("fitdata_1,fitdata_2"));
   pdf->paramOn(plot,RooFit::Layout(0.34,0.96,0.89),RooFit::Format("NEA",AutoPrecision(1)));
+  plot->getAttText()->SetTextSize(0.02);
   if (BLIND) plot->SetMinimum(0.0001);
   plot->SetTitle("");
   plot->Draw();
@@ -678,7 +732,7 @@ int getBestFitFunction(RooMultiPdf *bkg, RooAbsData *data, RooCategory *cat, boo
    
 		// Add the penalty
 
-		minNll=minNll+bkg->getCorrection();
+		minNll=val_SB+bkg->getCorrection();
 
 		if (!silent) {
 			/*
@@ -842,18 +896,18 @@ int main(int argc, char* argv[]){
 	}
 
 	vector<string> functionClasses;
-	functionClasses.push_back("Bernstein");
-	functionClasses.push_back("Exponential");
-	functionClasses.push_back("PowerLaw");
-//	functionClasses.push_back("Laurent");
-  functionClasses.push_back("DYTheory");
+	functionClasses.push_back("DYTheory_bern");
+	functionClasses.push_back("DYTheory_cheb");
+	functionClasses.push_back("DYTheory_pow");
+	functionClasses.push_back("DYTheory_lau");
+//  functionClasses.push_back("DYTheory");
   functionClasses.push_back("ModBreitWigner");
 	map<string,string> namingMap;
-	namingMap.insert(pair<string,string>("Bernstein","pol"));
-	namingMap.insert(pair<string,string>("Exponential","exp"));
-	namingMap.insert(pair<string,string>("PowerLaw","pow"));
-//	namingMap.insert(pair<string,string>("Laurent","lau"));
-  namingMap.insert(pair<string,string>("DYTheory","dyt"));
+	namingMap.insert(pair<string,string>("DYTheory_bern","dytbern"));
+	namingMap.insert(pair<string,string>("DYTheory_cheb","dytcheb"));
+	namingMap.insert(pair<string,string>("DYTheory_pow","dytpow"));
+	namingMap.insert(pair<string,string>("DYTheory_lau","dytlau")); 
+//  namingMap.insert(pair<string,string>("DYTheory","dyt"));
   namingMap.insert(pair<string,string>("ModBreitWigner","mBW"));
 
 	// store results here
@@ -1096,28 +1150,35 @@ int main(int argc, char* argv[]){
 ////////////////////////////////////////////////////////////////
 
         if (*funcType == "ModBreitWigner") {
-            RooAbsPdf *bkgPdf = getPdf(pdfsModel, *funcType, 0, 
-                        Form("env_pdf_%d_%s", (cat+catOffset), ext.c_str()));
-        
-            if (bkgPdf) {
-                int fitStatus = 0;
-                double thisNll = 0;
-                runFit(bkgPdf, data, &thisNll, &fitStatus, 3);
-            
-                
-//                double gofProb = 1.0; 
-            
-//                if (gofProb > 0.01) {
-                    allPdfs.insert(pair<string, RooAbsPdf*>(
-                        Form("%s0", funcType->c_str()), bkgPdf));
-                    storedPdfs.add(*bkgPdf);
-                    pdforders.push_back(0);
-//                } 
-            }
-            break; 
+    RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,0,Form("env_pdf_%d_%s",(cat+catOffset),ext.c_str()));
+    if (bkgPdf) {
+        int fitStatus = 0;
+        double thisNll = 0;
+        runFit(bkgPdf,data,&thisNll,&fitStatus,3);
+        double gofProb = 0;
+        plot(mass,bkgPdf,data,Form("%s/%s_cat%d.pdf",outDir.c_str(),funcType->c_str(),(cat+catOffset)),flashggCats_,fitStatus,&gofProb);
+        if (gofProb > 0.01) {
+            std::cout << "[ACCEPT] Adding "
+                      << bkgPdf->GetName()
+                      << " with gofProb="
+                      << gofProb
+                      << std::endl;
+            allPdfs.insert(pair<string,RooAbsPdf*>(Form("%s0",funcType->c_str()),bkgPdf));
+            storedPdfs.add(*bkgPdf);
+            pdforders.push_back(0);
+        } 
+        else {
+            std::cout << "[REJECT] Rejecting "
+                      << bkgPdf->GetName()
+                      << " with gofProb="
+                      << gofProb
+                      << std::endl;
         }
+    }
+    break;
+}
 
-				while (prob<upperEnvThreshold&& order < 7){
+				while (prob<upperEnvThreshold&& order <= 3){
 					RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,order,Form("env_pdf_%d_%s",(cat+catOffset),ext.c_str()));
 					if (!bkgPdf ){
 						// assume this order is not allowed
@@ -1149,8 +1210,8 @@ int main(int argc, char* argv[]){
 //							if (gofProb > 0.01 || order == truthOrder ) {  // Good looking fit or one of our regular truth functions
 /////////////////////////////////////////////////////////////////
 
-              double threshold = (*funcType == "ModBreitWigner") ? -1 : 0.01; 
-              if (gofProb > threshold || order == truthOrder) {
+//              double threshold = (*funcType == "ModBreitWigner") ? -1 : 0.01; 
+              if (gofProb > 0.05) {
                   std::cout << "[ACCEPT] Adding " << bkgPdf->GetName() 
                   << " (Type=" << *funcType 
                   << ", gofProb=" << gofProb << ")" << std::endl;                            
@@ -1241,7 +1302,7 @@ int main(int argc, char* argv[]){
 		FILE *dfile = fopen(datfile.c_str(),"w");
 		cout << "[RESULT] Recommended options" << endl;
 
-		for (int cat=startingCategory; cat<ncats; cat++){
+		for (int cat=startingCategory; cat<ncats; cat++){ 
 			cout << "Cat " << cat << endl;
 			fprintf(dfile,"cat=%d\n",(cat+catOffset)); 
 			for (map<string,int>::iterator it=choices_vec[cat-startingCategory].begin(); it!=choices_vec[cat-startingCategory].end(); it++){
