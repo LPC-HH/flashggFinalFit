@@ -56,3 +56,6 @@ The signal modelling, background modelling and datacard creation can be ran in p
 Finally, the objects and tools which are common to all subfolders are defined in the `tools` directory. If your input workspaces differ from the flashgg output workspace structure, then you may need to change the options here.
 
 Each of the relevant folders are documented with specific `README.md` files. 
+
+## reminder
+Each time after updating something in `Background`, please `make clean` and `make` to make the change work. Each time after updating DYCore related staff, please go back to `src` to `scram b clean` and `scram b -j 8`.
