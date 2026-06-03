@@ -1,6 +1,44 @@
 #!/bin/bash
 set -e
 
+REMOVE_PREVIOUS=false
+
+while getopts "r" opt; do
+    case $opt in
+        r) REMOVE_PREVIOUS=true ;;
+    esac
+done
+
+if $REMOVE_PREVIOUS; then
+    #echo "Removing previous results..."
+    echo "Removing previous workspaces"
+    rm -rf ${ROOT_IO}/tuples/split_tuples/ggH/ws/*.root
+    rm -rf ${ROOT_IO}/tuples/split_tuples/ggH/ws_GG2H/*.root
+    rm -rf ${ROOT_IO}/tuples/split_tuples/VBF/ws/*.root
+    rm -rf ${ROOT_IO}/tuples/split_tuples/VBF/ws_VBF/*.root
+
+    echo "Removing background fits"
+    rm -rf Background/outdir_tutorial/*.root
+    rm -rf Background/outdir_tutorial/bkgfTest-Data/*.pdf
+    rm -rf Background/outdir_tutorial/bkgfTest-Data/*.png
+    rm -rf Background/outdir_tutorial/bkgfTest-Data/*.txt
+
+    echo "Removing datacards"
+    rm -rf Combine/Datacard*
+    rm -rf Datacard/Datacard*
+    
+    echo "Removing signal fits"
+    rm -rf Signal/outdir_tutorial_combined/signalFit/Plots/*.p*
+    rm -rf Signal/outdir_tutorial_combined/signalFit/output/*.root
+    rm -rf Signal/outdir_packaged/*.root
+    rm -rf Signal/outdir_packaged/Plots/*.p*
+
+    echo "Removing output plots"
+    rm -rf Plots/plots_tutorial/*.p*
+    exit 1
+fi
+
+
 # ========== Tree2WS ==========
 
 cd Trees2WS
@@ -80,11 +118,20 @@ done
 popd
 
 cd ../Datacard
+echo "[INFO] Generating Datacards"
 python3 generate_datacards.py
 
 cd ../
 cd Combine
+
+echo "[INFO] Copying Signal, Data, and Datacards into combine folder"
 bash copy.sh
+
+echo "[INFO] Creating workspaces for Combine"
 bash run_workspace.sh
+
+echo "[INFO] Running asymptotic limits"
 bash run_asym.sh  
+
+echo "[INFO] Running significance"
 bash run_sig.sh  
