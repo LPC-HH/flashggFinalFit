@@ -2,7 +2,7 @@
 #include "TFile.h"
 #include <iostream>
 
-// ===== ¹¹Ôìº¯Êý£¨²»ÔÙ¶ÁÎÄ¼þ£©=====
+// ===== ï¿½ï¿½ï¿½ìº¯ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½=====
 RooDYSplineCore::RooDYSplineCore(const char* name,
                                  const char* title,
                                  RooAbsReal& _m) :
@@ -17,17 +17,17 @@ RooDYSplineCore::RooDYSplineCore(const RooDYSplineCore& other,
   m("m",this,other.m)
 {}
 
-// ===== evaluate£¨lazy load spline£©=====
+// ===== evaluateï¿½ï¿½lazy load splineï¿½ï¿½=====
 Double_t RooDYSplineCore::evaluate() const {
 
-  // ---- ¾²Ì¬»º´æ£¨Õû¸ö½ø³ÌÖ»¼ÓÔØÒ»´Î£©----
+  // ---- ï¿½ï¿½Ì¬ï¿½ï¿½ï¿½æ£¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î£ï¿½----
   static TSpline3* cached = nullptr;
 
   if (!cached) {
 
-    // ½¨ÒéÓÃ¾ø¶ÔÂ·¾¶£¨ºÜÖØÒª£©
+    // ï¿½ï¿½ï¿½ï¿½ï¿½Ã¾ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½
     const char* filename =
-      "/eos/user/z/zhguo/flashgg/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/DYshapes/fewz_spline.root";
+      "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/DYshapes/fewz_spline.root";
 
     const char* splinename = "fewz_spline_smear";
 
@@ -54,7 +54,7 @@ Double_t RooDYSplineCore::evaluate() const {
     std::cout << "[INFO] FEWZ spline loaded (lazy)" << std::endl;
   }
 
-  // ---- Õý³£ evaluate ----
+  // ---- ï¿½ï¿½ï¿½ï¿½ evaluate ----
   double mass = m;
 
   double xmin = cached->GetXmin();

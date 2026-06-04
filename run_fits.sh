@@ -39,68 +39,72 @@ if $REMOVE_PREVIOUS; then
 fi
 
 
+SKIP_BLOCK=true
 # ========== Tree2WS ==========
+if ! $SKIP_BLOCK; then
+  cd Trees2WS
 
-cd Trees2WS
+  echo "[INFO] Running trees2ws_data for ggH"
+  python3 trees2ws_data.py \
+    --inputConfig config_tutorial.py \
+    --inputTreeFile ${ROOT_IO}/tuples/split_tuples/ggH/allData_combined.root \
+    --applyMassCut --massCutRange 100,180
 
-echo "[INFO] Running trees2ws_data for ggH"
-python3 trees2ws_data.py \
-  --inputConfig config_tutorial.py \
-  --inputTreeFile ${ROOT_IO}/tuples/split_tuples/ggH/allData_combined.root \
-  --applyMassCut --massCutRange 100,180
+  echo "[INFO] Running trees2ws_data for VBF"
+  python3 trees2ws_data.py \
+    --inputConfig config_tutorial.py \
+    --inputTreeFile ${ROOT_IO}/tuples/split_tuples/VBF/allData_combined.root \
+    --applyMassCut --massCutRange 100,180
 
-echo "[INFO] Running trees2ws_data for VBF"
-python3 trees2ws_data.py \
-  --inputConfig config_tutorial.py \
-  --inputTreeFile ${ROOT_IO}/tuples/split_tuples/VBF/allData_combined.root \
-  --applyMassCut --massCutRange 100,180
+  echo "[INFO] Running trees2ws for ggH signal"
+  python3 trees2ws.py \
+    --inputConfig config_tutorial.py \
+    --inputTreeFile ${ROOT_IO}/tuples/split_tuples/ggH/output_signal_M125_13TeV_cats_pythia8.root \
+    --inputMass 125 --productionMode ggh --year combined
 
-echo "[INFO] Running trees2ws for ggH signal"
-python3 trees2ws.py \
-  --inputConfig config_tutorial.py \
-  --inputTreeFile ${ROOT_IO}/tuples/split_tuples/ggH/output_signal_M125_13TeV_cats_pythia8.root \
-  --inputMass 125 --productionMode ggh --year combined
+  echo "[INFO] Running trees2ws for VBF signal"
+  python3 trees2ws.py \
+    --inputConfig config_tutorial.py \
+    --inputTreeFile ${ROOT_IO}/tuples/split_tuples/VBF/output_signal_M125_13TeV_cats_pythia8.root \
+    --inputMass 125 --productionMode vbf --year combined
 
-echo "[INFO] Running trees2ws for VBF signal"
-python3 trees2ws.py \
-  --inputConfig config_tutorial.py \
-  --inputTreeFile ${ROOT_IO}/tuples/split_tuples/VBF/output_signal_M125_13TeV_cats_pythia8.root \
-  --inputMass 125 --productionMode vbf --year combined
+  cd ..
 
-cd ..
+  # ========== Signal ==========
 
-# ========== Signal ==========
+  cd Signal
 
-cd Signal
+  #echo "[INFO] Running fTest for signal"
+  #python3 RunSignalScripts.py --inputConfig config_tutorial_combined.py --mode fTest --modeOpts "--doPlots"
 
-#echo "[INFO] Running fTest for signal"
-#python3 RunSignalScripts.py --inputConfig config_tutorial_combined.py --mode fTest --modeOpts "--doPlots"
+  echo "[INFO] Running signalFit for ggH"
+  python3 RunSignalScripts.py --inputConfig config_tutorial_combined.py --mode signalFit --modeOpts "--doPlots --useDCB --skipVertexScenarioSplit --skipSystematics --massPoints 125 --skipBeamspotReweigh" --groupSignalFitJobsByCat
 
-echo "[INFO] Running signalFit for ggH"
-python3 RunSignalScripts.py --inputConfig config_tutorial_combined.py --mode signalFit --modeOpts "--doPlots --useDCB --skipVertexScenarioSplit --skipSystematics --massPoints 125 --skipBeamspotReweigh" --groupSignalFitJobsByCat
+  echo "[INFO] Running signalFit for VBF"
+  python3 RunSignalScripts.py --inputConfig config_tutorial_combined_VBF.py --mode signalFit --modeOpts "--doPlots --useDCB --skipVertexScenarioSplit --skipSystematics --massPoints 125 --skipBeamspotReweigh" --groupSignalFitJobsByCat
 
-echo "[INFO] Running signalFit for VBF"
-python3 RunSignalScripts.py --inputConfig config_tutorial_combined_VBF.py --mode signalFit --modeOpts "--doPlots --useDCB --skipVertexScenarioSplit --skipSystematics --massPoints 125 --skipBeamspotReweigh" --groupSignalFitJobsByCat
+  echo "[INFO] Packaging signal fits"
+  python3 RunPackager.py \
+    --cats VBFcat1,VBFcat2,VBFcat3,VBFcat4,VBFcat5,ggHcat1,ggHcat2,ggHcat3,ggHcat4,ggHcat5 \
+    --exts tutorial_combined --batch local --massPoints 125 --year combined --mergeYears
 
-echo "[INFO] Packaging signal fits"
-python3 RunPackager.py \
-  --cats VBFcat1,VBFcat2,VBFcat3,VBFcat4,VBFcat5,ggHcat1,ggHcat2,ggHcat3,ggHcat4,ggHcat5 \
-  --exts tutorial_combined --batch local --massPoints 125 --year combined --mergeYears
+  echo "[INFO] Running signal plotter"
+  for cat in VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5 ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5; do
+    python3 RunPlotter.py --procs all --years combined --cats $cat --ext packaged --doFWHM 
+  done
 
-echo "[INFO] Running signal plotter"
-for cat in VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5 ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5; do
-  python3 RunPlotter.py --procs all --years combined --cats $cat --ext packaged --doFWHM 
-done
+  cd ..
 
-cd ..
+  # ========== Background ==========
 
-# ========== Background ==========
+  cd Background
 
-cd Background
-
-echo "[INFO] Running fTest for background"
-python3 RunBackgroundScripts.py --inputConfig config_tutorial.py --mode fTestParallel
-python3 RunBackgroundScripts.py --inputConfig config_tutorial_VBF.py --mode fTestParallel
+  echo "[INFO] Running fTest for background"
+  python3 RunBackgroundScripts.py --inputConfig config_tutorial.py --mode fTestParallel
+  python3 RunBackgroundScripts.py --inputConfig config_tutorial_VBF.py --mode fTestParallel
+else
+  cd Background
+fi
 
 pushd ../Plots
 CSVFILE="out_yields_$(date +%Y%m%d_%H%M%S).csv"

@@ -284,7 +284,7 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   delete iter;
 
   // -----------------------------
-  // 1. 画图（用于取 hist �?curve�?  // -----------------------------
+  // 1. 画图（用于取 hist �?curve�?  // -----------------------------
   RooPlot *plot_chi2 = mass->frame();
 
   data->plotOn(plot_chi2,
@@ -294,9 +294,9 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   mpdf->plotOn(plot_chi2,
                Name("pdf"),
                RooFit::Range("full"),
-               RooFit::NormRange("SB1,SB2"));  //  关键：SB归一�?
+               RooFit::NormRange("SB1,SB2"));  //  关键：SB归一�?
   // -----------------------------
-  // 2. �?histogram �?curve
+  // 2. �?histogram �?curve
   // -----------------------------
   RooHist *hist  = (RooHist*)plot_chi2->getObject(0);
   RooCurve *curve = (RooCurve*)plot_chi2->getObject(1);
@@ -307,7 +307,7 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   }
 
   // -----------------------------
-  // 3. 手动计算 chi2（多区域�?  // -----------------------------
+  // 3. 手动计算 chi2（多区域�?  // -----------------------------
   double chi2_fit = 0;
   double chi2_test = 0;
   double chi2_sbtest = 0;
@@ -1211,7 +1211,7 @@ int main(int argc, char* argv[]){
 /////////////////////////////////////////////////////////////////
 
 //              double threshold = (*funcType == "ModBreitWigner") ? -1 : 0.01; 
-              if (gofProb > 0.05) {
+              if (gofProb > 0.01) {
                   std::cout << "[ACCEPT] Adding " << bkgPdf->GetName() 
                   << " (Type=" << *funcType 
                   << ", gofProb=" << gofProb << ")" << std::endl;                            
@@ -1299,7 +1299,8 @@ int main(int argc, char* argv[]){
 			outputfile->Close();	
 		}
 
-		FILE *dfile = fopen(datfile.c_str(),"w");
+
+		/*FILE *dfile = fopen(datfile.c_str(),"w");
 		cout << "[RESULT] Recommended options" << endl;
 
 		for (int cat=startingCategory; cat<ncats; cat++){ 
@@ -1320,4 +1321,54 @@ int main(int argc, char* argv[]){
 		inFile->Close();
 
 		return 0;
-	}
+	}*/
+
+    std::string datdir = datfile.substr(0, datfile.find_last_of("/"));
+
+    if (datdir != datfile) {
+        std::string cmd = "mkdir -p " + datdir;
+        int ret = system(cmd.c_str());
+        if (ret != 0) {
+            std::cerr << "[error] could not create directory: " << datdir
+                      << std::endl;
+            return 1;
+        }
+    }
+
+    FILE *dfile = fopen(datfile.c_str(), "w");
+    if (!dfile) {
+        std::cerr << "[error] cannot open datfile for writing: " << datfile
+                  << std::endl;
+        inFile->Close();
+        return 1;
+    }
+
+  cout << "[RESULT] Recommended options" << endl;
+
+  for (int cat = startingCategory; cat < ncats; cat++) {
+      cout << "Cat " << cat << endl;
+      fprintf(dfile, "cat=%d\n", (cat + catOffset));
+      for (map<string, int>::iterator it =
+                choices_vec[cat - startingCategory].begin();
+            it != choices_vec[cat - startingCategory].end(); it++) {
+          cout << "\t" << it->first << " - " << it->second << endl;
+          fprintf(dfile, "truth=%s:%d:%s%d\n", it->first.c_str(), it->second,
+                  namingMap[it->first].c_str(), it->second);
+      }
+      for (map<string, std::vector<int>>::iterator it =
+                choices_envelope_vec[cat - startingCategory].begin();
+            it != choices_envelope_vec[cat - startingCategory].end(); it++) {
+          std::vector<int> ords = it->second;
+          for (std::vector<int>::iterator ordit = ords.begin();
+                ordit != ords.end(); ordit++) {
+              fprintf(dfile, "paul=%s:%d:%s%d\n", it->first.c_str(), *ordit,
+                      namingMap[it->first].c_str(), *ordit);
+          }
+      }
+      fprintf(dfile, "\n");
+  }
+  fclose(dfile);
+  inFile->Close();
+
+  return 0;
+}
