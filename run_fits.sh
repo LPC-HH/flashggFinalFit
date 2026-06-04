@@ -39,7 +39,7 @@ if $REMOVE_PREVIOUS; then
 fi
 
 
-SKIP_BLOCK=true
+SKIP_BLOCK=false
 # ========== Tree2WS ==========
 if ! $SKIP_BLOCK; then
   cd Trees2WS
