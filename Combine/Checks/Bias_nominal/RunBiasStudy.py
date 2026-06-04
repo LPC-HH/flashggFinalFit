@@ -65,7 +65,8 @@ for ipdf in range(multipdf.getNumPdfs()):
 
 if opts.toys:
     print("\nCreating toys")
-    if not os.path.isdir('BiasToysn'): os.system('mkdir -p BiasToys')
+    if not os.path.isdir('BiasToys'): os.system('mkdir -p BiasToys')
+    os.system('rm -f BiasToys/*.root')
     toyCmdBase = 'combine -m %.4f -d %s -M GenerateOnly --expectSignal %.4f -s %g --saveToys %s '%(opts.mH, opts.datacard, opts.expectSignal, opts.seed, opts.combineOptions)
     #print("Base toy command:")
     #print(toyCmdBase)
@@ -92,6 +93,7 @@ print()
 
 if opts.fits:
     if not os.path.isdir('BiasFits'): os.system('mkdir -p BiasFits')
+    os.system('rm -f BiasFits/*.root')
     fitCmdBase = 'combine -m %.4f -d %s -M MultiDimFit -P %s --algo singles %s '%(opts.mH, opts.datacard, opts.poi, opts.combineOptions)
     #print("Base fits command:")
     #print(fitCmdBase)
@@ -120,6 +122,7 @@ if opts.fits:
 
 if opts.plots:
     if not os.path.isdir('BiasPlots'): os.system('mkdir -p BiasPlots')
+    os.system('rm -f BiasPlots/*.root')
     for ipdf,pdfName in indexNameMap.items():
         name = shortName(pdfName)
         for fitipdf, fitpdfName in indexNameMap.items():
