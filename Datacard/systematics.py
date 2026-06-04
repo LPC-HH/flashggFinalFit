@@ -99,9 +99,15 @@ experimental_systematics = [
 # mode = (other,scalesGlobal,scales,scalesCorr,smears): match the definition in the signal models
 
 signal_shape_systematics = [
-                #{'name':'deltafracright','title':'deltafracright','type':'signal_shape','mode':'other','mean':'0.0','sigma':'0.02'},
-                #{'name':'Scale','title':'Scale','type':'signal_shape','mode':'scales','mean':'0.0','sigma':'1.0'},
-                #{'name':'Smearing','title':'Smearing','type':'signal_shape','mode':'smears','mean':'0.0','sigma':'1.0'},
-                #{'name':'NonLinearity','title':'NonLinearity','type':'signal_shape','mode':'scalesGlobal','mean':'0.0','sigma':'0.002'},
-                #{'name':'Geant4','title':'Geant4','type':'signal_shape','mode':'scalesGlobal','mean':'0.0','sigma':'0.0005'}
-              ]
+    {'name':'peak_ggH_ggHcat1', 'title':'peak_ggH_ggHcat1', 'type':'signal_shape', 'mode':'other', 'mean':'0.0', 'sigma':'0.001', 'cats':['ggHcat1']},
+    {'name':'peak_ggH_ggHcat2', 'title':'peak_ggH_ggHcat2', 'type':'signal_shape', 'mode':'other', 'mean':'0.0', 'sigma':'0.001', 'cats':['ggHcat2']},
+    {'name':'peak_ggH_ggHcat3', 'title':'peak_ggH_ggHcat3', 'type':'signal_shape', 'mode':'other', 'mean':'0.0', 'sigma':'0.001', 'cats':['ggHcat3']},
+    {'name':'peak_ggH_ggHcat4', 'title':'peak_ggH_ggHcat4', 'type':'signal_shape', 'mode':'other', 'mean':'0.0', 'sigma':'0.001', 'cats':['ggHcat4']},
+    {'name':'peak_ggH_ggHcat5', 'title':'peak_ggH_ggHcat5', 'type':'signal_shape', 'mode':'other', 'mean':'0.0', 'sigma':'0.001', 'cats':['ggHcat5']},
+
+    {'name':'sigma_ggH_ggHcat1', 'title':'sigma_ggH_ggHcat1', 'type':'signal_shape', 'mode':'other', 'mean':'0.0', 'sigma':'0.1', 'cats':['ggHcat1']},
+    {'name':'sigma_ggH_ggHcat2', 'title':'sigma_ggH_ggHcat2', 'type':'signal_shape', 'mode':'other', 'mean':'0.0', 'sigma':'0.1', 'cats':['ggHcat2']},
+    {'name':'sigma_ggH_ggHcat3', 'title':'sigma_ggH_ggHcat3', 'type':'signal_shape', 'mode':'other', 'mean':'0.0', 'sigma':'0.1', 'cats':['ggHcat3']},
+    {'name':'sigma_ggH_ggHcat4', 'title':'sigma_ggH_ggHcat4', 'type':'signal_shape', 'mode':'other', 'mean':'0.0', 'sigma':'0.1', 'cats':['ggHcat4']},
+    {'name':'sigma_ggH_ggHcat5', 'title':'sigma_ggH_ggHcat5', 'type':'signal_shape', 'mode':'other', 'mean':'0.0', 'sigma':'0.1', 'cats':['ggHcat5']},
+]
