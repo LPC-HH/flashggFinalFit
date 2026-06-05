@@ -36,10 +36,17 @@ scram b -j 8
 # Install Final Fit package
 git clone git@github.com:LPC-HH/flashggFinalFit.git
 cd flashggFinalFit/
+cd Background
+make clean
+make
+cd ..
 source setup.sh
 ```
 
 Add: please redo the scram b -j 8 after installing the final fit package, since the DYCore is put as a Combine plugin now.
+
+## reminder
+Each time after updating something in `Background`, please `make clean` and `make` to make the change work. Each time after updating DYCore related staff, please go back to `src` to `scram b clean` and `scram b -j 8`.
 
 
 ## Contents
@@ -56,3 +63,10 @@ The signal modelling, background modelling and datacard creation can be ran in p
 Finally, the objects and tools which are common to all subfolders are defined in the `tools` directory. If your input workspaces differ from the flashgg output workspace structure, then you may need to change the options here.
 
 Each of the relevant folders are documented with specific `README.md` files. 
+
+## Running fits
+To run the fits most easily, use the run_fits.sh script
+```
+bash run_fits.sh -r #removes previous fitting results and plots
+bash run_fits.sh
+```
