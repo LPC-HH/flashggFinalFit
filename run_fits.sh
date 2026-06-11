@@ -10,7 +10,7 @@ while getopts "r" opt; do
 done
 
 if $REMOVE_PREVIOUS; then
-    #echo "Removing previous results..."
+    echo "Removing previous results..."
     echo "Removing previous workspaces"
     rm -rf ${ROOT_IO}/tuples/split_tuples/ggH/ws/*.root
     rm -rf ${ROOT_IO}/tuples/split_tuples/ggH/ws_GG2H/*.root
@@ -40,6 +40,14 @@ fi
 
 
 SKIP_BLOCK=false
+cd Trees2WS
+
+echo "[INFO] Running trees2ws_data for ggH"
+python3 trees2ws_data.py \
+  --inputConfig config_tutorial.py \
+  --inputTreeFile ${ROOT_IO}/tuples/split_tuples/ggH/allData_combined.root \
+  --applyMassCut --massCutRange 100,180
+cd ..
 # ========== Tree2WS ==========
 if ! $SKIP_BLOCK; then
   cd Trees2WS
@@ -96,15 +104,14 @@ if ! $SKIP_BLOCK; then
   cd ..
 
   # ========== Background ==========
-
-  cd Background
-
-  echo "[INFO] Running fTest for background"
-  python3 RunBackgroundScripts.py --inputConfig config_tutorial.py --mode fTestParallel
-  python3 RunBackgroundScripts.py --inputConfig config_tutorial_VBF.py --mode fTestParallel
 else
   cd Background
 fi
+
+echo "[INFO] Running fTest for background"
+python3 RunBackgroundScripts.py --inputConfig config_tutorial.py --mode fTestParallel
+python3 RunBackgroundScripts.py --inputConfig config_tutorial_VBF.py --mode fTestParallel
+
 
 pushd ../Plots
 CSVFILE="out_yields_$(date +%Y%m%d_%H%M%S).csv"
