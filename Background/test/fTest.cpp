@@ -121,6 +121,13 @@ void runFit(RooAbsPdf *pdf, RooAbsData *data, double *NLL, int *stat_t, int MaxT
     ,RooFit::Range("SB1,SB2"),RooFit::Minimizer("Minuit2","minimize"),RooFit::SumW2Error(kTRUE)); //FIXME
           stat = fitTest->status();
 	  minnll = fitTest->minNll();
+    std::cout << "[FitResult DEBUG] " << std::endl;
+    std::cout << fitTest->status()
+          << " "
+          << fitTest->covQual()
+          << " "
+          << fitTest->edm()
+          << std::endl;
 	  if (stat!=0) params_test->assignValueOnly(fitTest->randomizePars());
 	  ntries++; 
 	}
@@ -323,8 +330,35 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
 
     if (y <= 0) continue;
 
-    double fit_val = curve->interpolate(x);
-    double chi2_bin = (y - fit_val)*(y - fit_val) / y;
+    //double fit_val = curve->interpolate(x);
+    //double chi2_bin = (y - fit_val)*(y - fit_val) / y;
+    double binWidth = (mgg_high - mgg_low) / double(nBinsForMass);
+    double xlow  = x - 0.5 * binWidth;
+    double xhigh = x + 0.5 * binWidth;
+
+    mass->setRange("thisBin", xlow, xhigh);
+
+    double nSB = data->sumEntries(
+        Form("(%s >= %f && %s <= %f) || (%s >= %f && %s <= %f)",
+            mass->GetName(), SB1_low, mass->GetName(), SB1_high,
+            mass->GetName(), SB2_low, mass->GetName(), SB2_high)
+    );
+
+    RooAbsReal* binInt = mpdf->createIntegral(*mass, RooFit::Range("thisBin"));
+    RooAbsReal* sbInt  = mpdf->createIntegral(*mass, RooFit::Range("SB1,SB2"));
+
+    double fit_val = nSB * binInt->getVal() / sbInt->getVal();
+
+    delete binInt;
+    delete sbInt;
+
+    double chi2_bin = 0.0;
+    if (fit_val > 0) {
+      if (y > 0)
+        chi2_bin = 2.0 * (fit_val - y + y * log(y / fit_val));
+      else
+        chi2_bin = 2.0 * fit_val;
+    }
 
     bool in_fit =
         (x >= SB1_low && x <= SB1_high) ||
@@ -1044,7 +1078,7 @@ int main(int argc, char* argv[]){
         
               double gofProb = 0;
               plot(mass, bkgPdf, data, 
-              Form("%s/%s%d_cat%d.pdf", outDir.c_str(), funcType->c_str(), fixedOrder, (cat+catOffset)),
+              Form("%s/%s%d_%s.pdf", outDir.c_str(), funcType->c_str(), fixedOrder, catname.c_str()),
               flashggCats_, fitStatus, &gofProb);
               
        /////////////////////////////////////////// 
@@ -1115,7 +1149,7 @@ int main(int argc, char* argv[]){
 					}
 					double gofProb=0;
 					// otherwise we get it later ...
-					if (!saveMultiPdf) plot(mass,bkgPdf,data,Form("%s/%s%d_cat%d.pdf",outDir.c_str(),funcType->c_str(),order,(cat+catOffset)),flashggCats_,fitStatus,&gofProb);
+					if (!saveMultiPdf) plot(mass,bkgPdf,data,Form("%s/%s%d_%s.pdf",outDir.c_str(),funcType->c_str(),order,catname.c_str()),flashggCats_,fitStatus,&gofProb);
 					cout << "[INFO]\t " << *funcType << " " << order << " " << prevNll << " " << thisNll << " " << chi2 << " " << prob << endl;
 					//fprintf(resFile,"%15s && %d && %10.2f && %10.2f && %10.2f \\\\\n",funcType->c_str(),order,thisNll,chi2,prob);
 					prevNll=thisNll;
@@ -1156,8 +1190,8 @@ int main(int argc, char* argv[]){
         double thisNll = 0;
         runFit(bkgPdf,data,&thisNll,&fitStatus,3);
         double gofProb = 0;
-        plot(mass,bkgPdf,data,Form("%s/%s_cat%d.pdf",outDir.c_str(),funcType->c_str(),(cat+catOffset)),flashggCats_,fitStatus,&gofProb);
-        if (gofProb > 0.01) {
+        plot(mass,bkgPdf,data,Form("%s/%s_%s.pdf",outDir.c_str(),funcType->c_str(),catname.c_str()),flashggCats_,fitStatus,&gofProb);
+        if (gofProb > 0.05) {
             std::cout << "[ACCEPT] Adding "
                       << bkgPdf->GetName()
                       << " with gofProb="
@@ -1203,7 +1237,7 @@ int main(int argc, char* argv[]){
 
 						// Calculate goodness of fit for the thing to be included (will use toys for lowstats)!
 						double gofProb =0; 
-						plot(mass,bkgPdf,data,Form("%s/%s%d_cat%d.pdf",outDir.c_str(),funcType->c_str(),order,(cat+catOffset)),flashggCats_,fitStatus,&gofProb);
+						plot(mass,bkgPdf,data,Form("%s/%s%d_%s.pdf",outDir.c_str(),funcType->c_str(),order,catname.c_str()),flashggCats_,fitStatus,&gofProb);
 
 						if ((prob < upperEnvThreshold) ) { // Looser requirements for the envelope
 
@@ -1211,7 +1245,7 @@ int main(int argc, char* argv[]){
 /////////////////////////////////////////////////////////////////
 
 //              double threshold = (*funcType == "ModBreitWigner") ? -1 : 0.01; 
-              if (gofProb > 0.01) {
+              if (gofProb > 0.05) {
                   std::cout << "[ACCEPT] Adding " << bkgPdf->GetName() 
                   << " (Type=" << *funcType 
                   << ", gofProb=" << gofProb << ")" << std::endl;                            
@@ -1248,7 +1282,7 @@ int main(int argc, char* argv[]){
 		choices_envelope_vec.push_back(choices_envelope);
 		pdfs_vec.push_back(pdfs);
 
-		plot(mass,pdfs,data,Form("%s/truths_cat%d",outDir.c_str(),(cat+catOffset)),flashggCats_,cat);
+		plot(mass,pdfs,data,Form("%s/truths_%s",outDir.c_str(),catname.c_str()),flashggCats_,cat);
 
 		if (saveMultiPdf){
 

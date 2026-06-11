@@ -1,5 +1,23 @@
 # ========== Background ==========
+REMOVE_PREVIOUS=false
 
+while getopts "r" opt; do
+    case $opt in
+        r) REMOVE_PREVIOUS=true ;;
+    esac
+done
+
+if $REMOVE_PREVIOUS; then
+    echo "Removing background fits"
+    rm -rf Background/outdir_tutorial/*.root
+    rm -rf Background/outdir_tutorial/bkgfTest-Data/*.pdf
+    rm -rf Background/outdir_tutorial/bkgfTest-Data/*.png
+    rm -rf Background/outdir_tutorial/bkgfTest-Data/*.txt
+
+    echo "Removing multipdf plots fits"
+    rm -rf Plots/plots_tutorial/*.p*
+    exit 1
+fi
 cd Background
 
 echo "[INFO] Running fTest for background"
