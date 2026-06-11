@@ -38,9 +38,9 @@ The three steps can be run in one go, but it's probably safer to run them one-by
 Here is an example:
 
 ```
-python3 RunBiasStudy.py -d Datacard_mu_ggH_cat0.root -t 
-python3 RunBiasStudy.py -d Datacard_mu_ggH_cat0.root -f -c "--cminDefaultMinimizerStrategy 0 --X-rtd MINIMIZER_freezeDisassociatedParams --X-rtd MINIMIZER_multiMin_hideConstants --X-rtd MINIMIZER_multiMin_maskConstraints --X-rtd MINIMIZER_multiMin_maskChannels=2 --freezeParameters MH" 
-python3 RunBiasStudy.py -d Datacard_mu_ggH_cat0.root -p --gaussianFit
+python3 RunBiasStudy.py -d Datacard_mu_ggH_cat0.root -t -b ${cat}
+python3 RunBiasStudy.py -d Datacard_mu_ggH_cat0.root -b ${cat} -f -c "--setParameterRanges r=-5,5 --cminDefaultMinimizerStrategy 0 --X-rtd MINIMIZER_freezeDisassociatedParams --X-rtd MINIMIZER_multiMin_hideConstants --X-rtd MINIMIZER_multiMin_maskConstraints" 
+python3 RunBiasStudy.py -d Datacard_mu_ggH_cat0.root -b ${cat} -p --gaussianFit
 ```
 The options for the second step are passed to combine; these are recommended to get the fit to converge. 
 The additional option on the plotting is fairly self-explanatory; it adds a gaussian fit to the output plot.

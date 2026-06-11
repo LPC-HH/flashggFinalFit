@@ -1,0 +1,4 @@
+condor/logs/*.err
+condor/logs/*.log
+condor/logs/*.out
+docker_stderror
