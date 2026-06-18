@@ -587,6 +587,123 @@ RooAbsPdf* PdfModelBuilder::getDYLaurent(string prefix, int order)
 }
 
 
+RooAbsPdf* PdfModelBuilder::getBWZExpPoly(string prefix, int order)
+{
+  RooArgList args;
+
+  // observable
+  args.add(*obs_var); // @0
+
+  // ---------------------------------
+  // fixed Z parameters
+  // ---------------------------------
+
+  RooRealVar* mZ =
+    new RooRealVar(
+      Form("%s_mZ",prefix.c_str()),
+      "Z mass",
+      91.1876
+    );
+  mZ->setConstant(true);
+
+  RooRealVar* gammaZ =
+    new RooRealVar(
+      Form("%s_gammaZ",prefix.c_str()),
+      "Z width",
+      2.4952
+    );
+  gammaZ->setConstant(true);
+
+  args.add(*mZ);      // @1
+  args.add(*gammaZ);  // @2
+
+  // ---------------------------------
+  // scaled variable
+  //
+  // x=(m-125)/25
+  //
+  // m=110 -> -0.6
+  // m=150 -> +1.0
+  // ---------------------------------
+
+  std::string x = "((@0-125.0)/25.0)";
+
+  // ---------------------------------
+  // BWZ core
+  // ---------------------------------
+
+  std::string formula =
+    "(@2*exp(";
+
+  // ---------------------------------
+  // exponential polynomial
+  // ---------------------------------
+
+  for(int i=0; i<order; i++)
+  {
+    std::string name =
+      Form("%s_p%d",prefix.c_str(),i);
+
+    RooRealVar* p =
+      new RooRealVar(
+        name.c_str(),
+        name.c_str(),
+        0.0,
+        -5.0,
+         5.0
+      );
+
+    params.insert({name,p});
+
+    args.add(*p);
+
+    int idx = args.getSize()-1;
+
+    if(i>0) formula += " + ";
+
+    if(i==0)
+    {
+      formula += Form(
+        "@%d*(%s)",
+        idx,
+        x.c_str()
+      );
+    }
+    else
+    {
+      formula += Form(
+        "@%d*pow(%s,%d)",
+        idx,
+        x.c_str(),
+        i+1
+      );
+    }
+  }
+
+  formula += ")";
+
+  // ---------------------------------
+  // BWZ denominator
+  // ---------------------------------
+
+  formula +=
+    "/((@0-@1)*(@0-@1)"
+    "+pow(@2/2.,2)))";
+
+  std::cout
+    << "BWZExpPoly formula = "
+    << formula
+    << std::endl;
+
+  return new RooGenericPdf(
+    prefix.c_str(),
+    prefix.c_str(),
+    formula.c_str(),
+    args
+  );
+}
+
+
 RooAbsPdf* PdfModelBuilder::getKeysPdf(string prefix){
   if (!keysPdfAttributesSet){
     cerr << "ERROR -- keysPdf attributes not set" << endl;
@@ -683,15 +800,16 @@ void PdfModelBuilder::addBkgPdf(string type, int nParams, string name, bool cach
     pdf = getModBreitWigner(name);
   }
 //  if (type=="PowerLaw") pdf = getPowerLawSingle(name,nParams);
-  if (type=="Laurent") pdf = getDYLaurent(name,nParams);
-  if (type=="Bernstein") pdf = getDYBernstein(name,nParams);
-  if (type=="Exponential") pdf = getDYTheory(name,nParams);
-  if (type=="PowerLaw") pdf = getDYPowerLaw(name,nParams);
+  if (type=="Laurent") pdf = getLaurentSeries(name,nParams);
+  if (type=="Bernstein") pdf = getBernstein(name,nParams);
+  if (type=="Exponential") pdf = getExponentialSingle(name,nParams);
+  if (type=="PowerLaw") pdf = getPowerLawSingle(name,nParams);
   if (type=="DYTheory") pdf = getDYTheory(name,nParams);
   if (type=="DYTheory_cheb") pdf = getDYTheory(name,nParams);
   if (type=="DYTheory_pow") pdf = getDYPowerLaw(name,nParams);
   if (type=="DYTheory_lau") pdf = getDYLaurent(name,nParams);
   if (type=="DYTheory_bern") pdf = getDYBernstein(name,nParams);
+  if (type=="BWZ_exp") pdf = getBWZExpPoly(name,nParams);
   if (type=="KeysPdf") pdf = getKeysPdf(name);
   if (type=="File") pdf = getPdfFromFile(name);
 

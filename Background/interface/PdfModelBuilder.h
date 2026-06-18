@@ -68,6 +68,7 @@ class PdfModelBuilder {
     RooAbsPdf* getDYChebychev(std::string prefix, int order);
     RooAbsPdf* getDYPowerLaw(std::string prefix, int order);
     RooAbsPdf* getDYLaurent(string prefix, int order);
+    RooAbsPdf* getBWZExpPoly(std::string prefix, int order);
     RooAbsPdf* getKeysPdf(string prefix);
     RooAbsPdf* getPdfFromFile(string &prefix);
     RooAbsPdf* getModBreitWigner(string prefix);

@@ -313,6 +313,7 @@ for bname in bpdfs:
   elif "dytcheb" in bname: fname = "#bf{DY Theory core with exp(Chebychev)}"
   elif "dytpow" in bname: fname = "#bf{DY Theory core with exp(Powerlaw)}"
   elif "dytlau" in bname: fname = "#bf{DY Theory core with exp(Laurent)}"
+  elif "bwzexp" in bname: fname = "#bf{bwz x exp}"
   elif "bern" in bname: fname = "#bf{Bernstein polynomial}"
   elif "exp" in bname: fname = "#bf{Sum of exponentials}"
   elif "pow" in bname: fname = "#bf{Sum of power law functions}"

@@ -12,6 +12,7 @@ backgroundScriptCfg = {
   'catOffset':0, # add offset to category numbers (useful for categories from different allData.root files)  
   'ext':'tutorial', # extension to add to output directory
   'year':'combined', # Use combined when merging all years in category (for plots)
+  'nBinsPerGeV':4, #number of bins used in the fitting
 
   # Job submission options
   'batch':'local', # [condor,SGE,IC,local]
