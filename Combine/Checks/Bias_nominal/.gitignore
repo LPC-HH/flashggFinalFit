@@ -1,4 +1,6 @@
 condor/logs/*.err
 condor/logs/*.log
 condor/logs/*.out
+condor/Bias*
+*sender.sh
 docker_stderror
