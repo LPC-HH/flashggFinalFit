@@ -39,6 +39,7 @@ if opt.inputConfig != '':
     options['dataFile']     = _cfg['inputWS']
     options['cats']         = _cfg['cats']
     options['catOffset']    = _cfg['catOffset']
+    options['nBinsPerGeV']  = _cfg['nBinsPerGeV']
     options['ext']          = _cfg['ext']
     options['year']         = _cfg['year']
     options['lumi']         = lumiMap[_cfg['year']]
@@ -82,6 +83,7 @@ print(" --> Input data file: %s"%options['dataFile'])
 print(" --> Categories: %s"%options['cats'])
 print(" --> Extension: %s"%options['ext'])
 print(" --> Category offset: %g"%options['catOffset'])
+print(" --> nBinsPerGeV : %g"%options['nBinsPerGeV'])
 print(" --> Year: %s ::: Corresponds to intLumi = %s fb^-1"%(options['year'],options['lumi']))
 print("")
 print(" --> Job information:")

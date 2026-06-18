@@ -45,6 +45,9 @@ source setup.sh
 
 Add: please redo the scram b -j 8 after installing the final fit package, since the DYCore is put as a Combine plugin now.
 
+## User changes
+Make sure to update the Background/RootDict.cxx and DYCore/src/RooDYSplineCore.cc to have your user information #TODO MAKE THIS AUTOMATIC
+
 ## reminder
 Each time after updating something in `Background`, please `make clean` and `make` to make the change work. Each time after updating DYCore related staff, please go back to `src` to `scram b clean` and `scram b -j 8`.
 

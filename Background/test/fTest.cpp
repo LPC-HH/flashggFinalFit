@@ -56,7 +56,8 @@ bool BLIND = true;
 bool runFtestCheckWithToys=false;
 int mgg_low =110;
 int mgg_high =150;
-int nBinsForMass = 4*(mgg_high-mgg_low);
+int nBinsForMass;
+int nBinsPerGeV;
 double SB1_low = 110;
 double SB1_high = 120;
 double SB2_low = 130;
@@ -74,11 +75,11 @@ TRandom3 *RandomGen = new TRandom3();
 
 RooAbsPdf* getPdf(PdfModelBuilder &pdfsModel, string type, int order, const char* ext=""){
   
-  if (type=="Bernstein") return pdfsModel.getDYBernstein(Form("%s_bern%d",ext,order),order); 
+  if (type=="Bernstein") return pdfsModel.getBernstein(Form("%s_bern%d",ext,order),order); 
   else if (type=="Chebychev") return pdfsModel.getChebychev(Form("%s_cheb%d",ext,order),order); 
-  else if (type=="Exponential") return pdfsModel.getDYTheory(Form("%s_exp%d",ext,order),order); 
-  else if (type=="PowerLaw") return pdfsModel.getDYPowerLaw(Form("%s_pow%d",ext,order),order); 
-  else if (type=="Laurent") return pdfsModel.getDYLaurent(Form("%s_lau%d",ext,order),order); 
+  else if (type=="Exponential") return pdfsModel.getExponentialSingle(Form("%s_exp%d",ext,order),order); 
+  else if (type=="PowerLaw") return pdfsModel.getPowerLawSingle(Form("%s_pow%d",ext,order),order); 
+  else if (type=="Laurent") return pdfsModel.getLaurentSeries(Form("%s_lau%d",ext,order),order); 
   else if (type=="ModBreitWigner") {
     return pdfsModel.getModBreitWigner(Form("%s_mBW3", ext));
   }
@@ -87,6 +88,7 @@ RooAbsPdf* getPdf(PdfModelBuilder &pdfsModel, string type, int order, const char
   else if (type=="DYTheory_pow") return pdfsModel.getDYPowerLaw(Form("%s_dytpow%d",ext,order),order); 
   else if (type=="DYTheory_lau") return pdfsModel.getDYLaurent(Form("%s_dytlau%d",ext,order),order); 
   else if (type=="DYTheory_bern") return pdfsModel.getDYBernstein(Form("%s_dytbern%d",ext,order),order); 
+  else if (type=="BWZ_exp") return pdfsModel.getBWZExpPoly(Form("%s_bwzexp%d",ext,order),order);
   else {
     cerr << "[ERROR] -- getPdf() -- type " << type << " not recognised." << endl;
     return NULL;
@@ -192,7 +194,7 @@ double getProbabilityFtest(double chi2, int ndof,RooAbsPdf *pdfNull, RooAbsPdf *
 	int MaxTries = 2;
 	while (stat_n!=0){
 	  if (ntries>=MaxTries) break;
-	  RooFitResult *fitNull = pdfNull->fitTo(*binnedtoy,RooFit::Save(1),RooFit::Range("SB1,SB2"),RooFit::Strategy(1),RooFit::SumW2Error(kTRUE) //FIXME
+	  RooFitResult *fitNull = pdfNull->fitTo(*binnedtoy,RooFit::Save(1),RooFit::Range("SB1,SB2"),RooFit::Strategy(1),RooFit::SumW2Error(kFALSE) //FIXME
 		,RooFit::Minimizer("Minuit2","minimize"),RooFit::Minos(0),RooFit::Hesse(0),RooFit::PrintLevel(-1));
 		//,RooFit::Optimize(0));
 
@@ -205,7 +207,7 @@ double getProbabilityFtest(double chi2, int ndof,RooAbsPdf *pdfNull, RooAbsPdf *
 	ntries = 0;
 	while (stat_t!=0){
 	  if (ntries>=MaxTries) break;
-	  RooFitResult *fitTest = pdfTest->fitTo(*binnedtoy,RooFit::Save(1),RooFit::Range("SB1,SB2"),RooFit::Strategy(1),RooFit::SumW2Error(kTRUE) //FIXME
+	  RooFitResult *fitTest = pdfTest->fitTo(*binnedtoy,RooFit::Save(1),RooFit::Range("SB1,SB2"),RooFit::Strategy(1),RooFit::SumW2Error(kFALSE) //FIXME
 		,RooFit::Minimizer("Minuit2","minimize"),RooFit::Minos(0),RooFit::Hesse(0),RooFit::PrintLevel(-1));
 	  nllTest = fitTest->minNll();
           stat_t = fitTest->status();
@@ -491,8 +493,9 @@ void plot(RooRealVar *mass, RooMultiPdf *pdfs, RooCategory *catIndex, RooAbsData
   
   std::cout << "\n========== DEBUG START ==========\n";
 
-  double binWidth = 0.25;
-  int nBins = (mgg_high - mgg_low) / binWidth;
+  //double binWidth = 0.25;
+  //int nBins = (mgg_high - mgg_low) / binWidth;
+  int nBins = nBinsForMass;
 
   int color[7] = {kBlue,kRed,kMagenta,kGreen+1,kOrange+7,kAzure+10,kBlack};
   TLegend *leg = new TLegend(0.5,0.55,0.92,0.88);
@@ -832,7 +835,8 @@ int main(int argc, char* argv[]){
   int isFlashgg_ =1;
   string flashggCatsStr_;
   vector<string> flashggCats_;
- bool isData_ =0;
+  bool isData_ =0;
+  int nBinsPerGeV;
 
   po::options_description desc("Allowed options");
   desc.add_options()
@@ -852,6 +856,7 @@ int main(int argc, char* argv[]){
 		("flashggCats,f", po::value<string>(&flashggCatsStr_)->default_value("UntaggedTag_0,UntaggedTag_1,UntaggedTag_2,UntaggedTag_3,UntaggedTag_4,VBFTag_0,VBFTag_1,VBFTag_2,TTHHadronicTag,TTHLeptonicTag,VHHadronicTag,VHTightTag,VHLooseTag,VHEtTag"),       "Flashgg category names to consider")
     ("year", po::value<string>(&year_)->default_value("2016"),       "Dataset year")
     ("catOffset", po::value<int>(&catOffset)->default_value(0),       "Category numbering scheme offset")
+    ("nBinsPerGeV", po::value<int>(&nBinsPerGeV)->default_value(4),              "Number of bins per GeV")
     ("verbose,v",                                                                               "Run with more output")
   ;
   po::variables_map vm;
@@ -882,6 +887,12 @@ int main(int argc, char* argv[]){
 	ncats= flashggCats_.size();
 
 	}
+
+  nBinsForMass = nBinsPerGeV*(mgg_high-mgg_low);
+
+  //if(verbose) std::cout << "Using " << nBinsPerGeV << " bns per GeV" << std::endl;
+  std::cout << "Using " << nBinsPerGeV << " bins per GeV" << std::endl;
+  std::cout << "Using " << nBinsForMass << " total bins" << std::endl;
 
   if(verbose) std::cout << "[INFO] SaveMultiPdf? " << saveMultiPdf << std::endl;
   TFile *outputfile;
@@ -930,19 +941,27 @@ int main(int argc, char* argv[]){
 	}
 
 	vector<string> functionClasses;
+  functionClasses.push_back("Bernstein");
+	functionClasses.push_back("Exponential");
+	functionClasses.push_back("PowerLaw");
 	functionClasses.push_back("DYTheory_bern");
 	functionClasses.push_back("DYTheory_cheb");
 	functionClasses.push_back("DYTheory_pow");
 	functionClasses.push_back("DYTheory_lau");
 //  functionClasses.push_back("DYTheory");
-  functionClasses.push_back("ModBreitWigner");
+//  functionClasses.push_back("ModBreitWigner");
+  functionClasses.push_back("BWZ_exp");
 	map<string,string> namingMap;
+  namingMap.insert(pair<string,string>("Bernstein","bern"));
+	namingMap.insert(pair<string,string>("Exponential","exp"));
+	namingMap.insert(pair<string,string>("PowerLaw","pow"));
 	namingMap.insert(pair<string,string>("DYTheory_bern","dytbern"));
 	namingMap.insert(pair<string,string>("DYTheory_cheb","dytcheb"));
 	namingMap.insert(pair<string,string>("DYTheory_pow","dytpow"));
 	namingMap.insert(pair<string,string>("DYTheory_lau","dytlau")); 
 //  namingMap.insert(pair<string,string>("DYTheory","dyt"));
-  namingMap.insert(pair<string,string>("ModBreitWigner","mBW"));
+//  namingMap.insert(pair<string,string>("ModBreitWigner","mBW"));
+  namingMap.insert(pair<string,string>("BWZ_exp","bwzexp"));
 
 	// store results here
 
@@ -964,7 +983,7 @@ int main(int argc, char* argv[]){
   mass->setRange("full",mgg_low,mgg_high);
 	std:: cout << "[INFO] Got mass from ws " << mass << std::endl;
 	pdfsModel.setObsVar(mass);
-	double upperEnvThreshold = 0.1; // upper threshold on delta(chi2) to include function in envelope (looser than truth function)
+	double upperEnvThreshold = 0.05; // upper threshold on delta(chi2) to include function in envelope (looser than truth function)
 
 	fprintf(resFile,"Truth Model & d.o.f & $\\Delta NLL_{N+1}$ & $p(\\chi^{2}>\\chi^{2}_{(N\\rightarrow N+1)})$ \\\\\n");
 	fprintf(resFile,"\\hline\n");
@@ -979,7 +998,7 @@ int main(int argc, char* argv[]){
         //FIXME trying to remove duplicated names for 2016+2017 combination
 	//if (isFlashgg_) ext = Form("13TeV_%d",year_);
 	for (int cat=startingCategory; cat<ncats; cat++){
-
+    std::cout << "Cat: " << cat << "| Starting Cat: " << startingCategory << " | nCats: " << ncats << std::endl;
 		map<string,int> choices;
 		map<string,std::vector<int> > choices_envelope;
 		map<string,RooAbsPdf*> pdfs;
@@ -1212,65 +1231,64 @@ int main(int argc, char* argv[]){
     break;
 }
 
-				while (prob<upperEnvThreshold&& order <= 3){
-					RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,order,Form("env_pdf_%d_%s",(cat+catOffset),ext.c_str()));
-					if (!bkgPdf ){
-						// assume this order is not allowed
-						if (order >6) { std::cout << " [WARNING] could not add ] " << std::endl; break ;}
-						order++;
-					}
-					else {
-						//RooFitResult *fitRes;
-						int fitStatus=0;
-						runFit(bkgPdf,data,&thisNll,&fitStatus,/*max iterations*/3);//bkgPdf->fitTo(*data,Save(true),RooFit::Minimizer("Minuit2","minimize"));
-						//thisNll = fitRes->minNll();
-						if (fitStatus!=0) std::cout << "[WARNING] Warning -- Fit status for " << bkgPdf->GetName() << " at " << fitStatus <<std::endl;
-						double myNll = 2.*thisNll;
-						chi2 = 2.*(prevNll-thisNll);
-						if (chi2<0. && order>1) chi2=0.;
-						prob = TMath::Prob(chi2,order-prev_order);
+				RooAbsPdf *bkgPdf =
+    getPdf(pdfsModel,
+           *funcType,
+           truthOrder,
+           Form("env_pdf_%d_%s",
+           (cat+catOffset),ext.c_str()));
 
-						cout << "[INFO] \t " << *funcType << " " << order << " " << prevNll << " " << thisNll << " " << chi2 << " " << prob << endl;
-						prevNll=thisNll;
-						cache_order=prev_order;
-						cache_pdf=prev_pdf;
+if (bkgPdf){
 
-						// Calculate goodness of fit for the thing to be included (will use toys for lowstats)!
-						double gofProb =0; 
-						plot(mass,bkgPdf,data,Form("%s/%s%d_%s.pdf",outDir.c_str(),funcType->c_str(),order,catname.c_str()),flashggCats_,fitStatus,&gofProb);
+    int fitStatus = 0;
+    double thisNll = 0;
 
-						if ((prob < upperEnvThreshold) ) { // Looser requirements for the envelope
+    runFit(bkgPdf,data,&thisNll,&fitStatus,3);
 
-//							if (gofProb > 0.01 || order == truthOrder ) {  // Good looking fit or one of our regular truth functions
-/////////////////////////////////////////////////////////////////
+    double gofProb = 0;
 
-//              double threshold = (*funcType == "ModBreitWigner") ? -1 : 0.01; 
-              if (gofProb > 0.05) {
-                  std::cout << "[ACCEPT] Adding " << bkgPdf->GetName() 
-                  << " (Type=" << *funcType 
-                  << ", gofProb=" << gofProb << ")" << std::endl;                            
-                            
-/////////////////////////////////////////////////////////////////
+    plot(mass,bkgPdf,data,
+         Form("%s/%s%d_%s.pdf",
+         outDir.c_str(),
+         funcType->c_str(),
+         truthOrder,
+         catname.c_str()),
+         flashggCats_,
+         fitStatus,
+         &gofProb);
 
-								std::cout << "[INFO] Adding to Envelope " << bkgPdf->GetName() << " "<< gofProb 
-									<< " 2xNLL + c is " << myNll + bkgPdf->getVariables()->getSize() <<  std::endl;
-								allPdfs.insert(pair<string,RooAbsPdf*>(Form("%s%d",funcType->c_str(),order),bkgPdf));
-								storedPdfs.add(*bkgPdf);
-								pdforders.push_back(order);
+    if (gofProb > 0.05){
 
-								// Keep track but we shall redo this later
-								if ((myNll + bkgPdf->getVariables()->getSize()) < MinimimNLLSoFar) {
-									simplebestFitPdfIndex = storedPdfs.getSize()-1;
-									MinimimNLLSoFar = myNll + bkgPdf->getVariables()->getSize();
-								}
-							}
-						}
+        std::cout
+          << "[INFO] Adding ONLY truth-order pdf to envelope: "
+          << bkgPdf->GetName()
+          << std::endl;
 
-						prev_order=order;
-						prev_pdf=bkgPdf;
-						order++;
-					}
-				}
+        allPdfs.insert(
+            pair<string,RooAbsPdf*>(
+                Form("%s%d",
+                funcType->c_str(),
+                truthOrder),
+                bkgPdf));
+
+        storedPdfs.add(*bkgPdf);
+
+        pdforders.push_back(truthOrder);
+
+        double myNll = 2.*thisNll;
+
+        if ((myNll + bkgPdf->getVariables()->getSize())
+            < MinimimNLLSoFar){
+
+            simplebestFitPdfIndex =
+                storedPdfs.getSize()-1;
+
+            MinimimNLLSoFar =
+                myNll +
+                bkgPdf->getVariables()->getSize();
+        }
+    }
+}
 
 				fprintf(resFile,"%15s & %d & %5.2f & %5.2f \\\\\n",funcType->c_str(),cache_order+1,chi2,prob);
 				choices_envelope.insert(pair<string,std::vector<int> >(*funcType,pdforders));
