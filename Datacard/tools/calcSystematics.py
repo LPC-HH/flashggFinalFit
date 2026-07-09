@@ -310,10 +310,10 @@ def calcSystYields(_nominalDataName,_nominalDataContents,_inputWS,_systFactoryTy
         systYields["%s_up"%s] = data_hist_up.sumEntries()
         systYields["%s_down"%s] = data_hist_down.sumEntries()
 
-        
+
   # Add variations to dataFrame
   return systYields
-  
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # EXPERIMENTAL SYSTEMATICS FACTORY:
@@ -354,7 +354,7 @@ def theorySystFactory(d,systs,ftype,options,stxsMergeScheme=None,_removal=False)
 
   # For process yields: sum central object weight corrected (remove experimental effects)
   corrExt = "_COWCorr" if not options.skipCOWCorr else ''
-   
+
   # Calculate the per-production mode (per-year) yield variation: add as column in dataFrame
   for proc_s0 in d[d['type']=='sig'].proc_s0.unique():
     for year in options.years.split(","):
@@ -414,15 +414,44 @@ def theorySystFactory(d,systs,ftype,options,stxsMergeScheme=None,_removal=False)
   # Loop over systematics and fill entries for rows which satisfy mask
   for s in systs:
     if s['type'] == 'constant': continue
+  
     # Extract factory type
     f = ftype[s['name']]
-    # For ggH theory uncertainties: require proc contains "ggH"
-    if "THU_ggH" in s['name']: mask = (d['type']=='sig')&(d['nominal_yield']!=0)&(d['proc'].str.contains('ggH'))
-    else: mask = (d['type']=='sig')&(d['nominal_yield']!=0)
-    # Loop over tiers and use appropriate mode for compareYield function: skip mnorm as treated separately below
-    for tier in s['tiers']: 
+  
+    # Base mask: signal rows with non-zero yield
+    base_mask = (d['type'] == 'sig') & (d['nominal_yield'] != 0)
+  
+    # Apply only in ggH and VBF categories
+    cat_mask = (
+        d['cat'].str.contains('ggH', case=False, na=False) |
+        d['cat'].str.contains('VBF', case=False, na=False)
+    )
+  
+    # Process masks
+    ggH_proc_mask = d['proc'].str.contains('ggH', case=False, na=False)
+  
+    qqH_proc_mask = (
+        d['proc'].str.contains('qqH', case=False, na=False) |
+        d['proc'].str.contains('VBF', case=False, na=False)
+    )
+  
+    if "THU_ggH" in s['name']:
+      mask = base_mask & cat_mask & ggH_proc_mask
+  
+    elif "THU_qqH" in s['name']:
+      mask = base_mask & cat_mask & qqH_proc_mask
+  
+    else:
+      mask = base_mask
+  
+    # Loop over tiers and use appropriate mode for compareYield function
+    for tier in s['tiers']:
       if tier == 'mnorm': continue
-      d.loc[mask,"%s_%s"%(s['name'],tier)] = d[mask].apply(lambda x: compareYield(x,f,s['name'],mode=tier), axis=1)
+  
+      d.loc[mask, "%s_%s" % (s['name'], tier)] = d[mask].apply(
+          lambda x: compareYield(x, f, s['name'], mode=tier),
+          axis=1
+      )
 
   # For merging STXS bins in parameter scheme: calculate mnorm systematics (merged-STXS-normalisation)
   # One nuisance per merge
@@ -459,7 +488,7 @@ def theorySystFactory(d,systs,ftype,options,stxsMergeScheme=None,_removal=False)
     for id_ in ids_: d.drop(['%snominal_yield'%id_], axis=1, inplace=True)
 
   return d
-  
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Function for extracting systematic factors:
 #   * mode == treatment of theory systematic  
@@ -514,7 +543,7 @@ def compareYield(row,factoryType,sname,mode='default',mname=None):
     else:
       mnorm = (row["proc_%s_yield"%sname]/row["proc_nominal_yield"])/(row["merge_%s_%s_yield"%(mname,sname)]/row["merge_%s_nominal_yield"%mname])
       return [mnorm]
- 
+
   elif mode == 'inorm':
     if factoryType in ["a_w","a_h"]:
       inorm_up = (row["proc_%s_up_yield"%sname]/row["proc_nominal_yield"])
@@ -540,7 +569,7 @@ def compareYield(row,factoryType,sname,mode='default',mname=None):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Function to group systematics: e.g. for scaleWeight where up/down = [1,2],[3,6] etc
 def groupSystematics(d,systs,options,prefix="scaleWeight",groupings=[],stxsMergeScheme=None,_removal=False):
-  
+
   # Loop over groupings
   for group_idx in range(len(groupings)): 
     gr = groupings[group_idx]
@@ -595,7 +624,7 @@ def groupSystematics(d,systs,options,prefix="scaleWeight",groupings=[],stxsMerge
       elif s['name'] == "%s_%g"%(prefix,gr[1]): systs.remove(s)
 
   return d,systs
-      
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Function to calculate the envelope of systematics with a regexp
 def envelopeSystematics(d,systs,options,regexp=None,stxsMergeScheme=None,_removal=False):
@@ -648,12 +677,12 @@ def envelopeSystematics(d,systs,options,regexp=None,stxsMergeScheme=None,_remova
      # Remove original columns from dataFrame
      if _removal:
        for s in s_regexp: d.drop( ["%s_%s"%(s['name'],tier)], axis=1, inplace=True ) 
- 
+
   # Add envelope to syst dictionary
   systs.append(env)
   if _removal:
     for s in s_regexp: systs.remove(s)
- 
+
   return d, systs
 
 # Function to compare systematic variation for envelope
