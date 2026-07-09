@@ -93,7 +93,7 @@ if ! $SKIP_BLOCK; then
     python3 RunPlotter.py --procs all --years combined --cats $cat --ext packaged --doFWHM 
   done
 
-  cd ..
+  cd ../Background
 
   # ========== Background ==========
 else

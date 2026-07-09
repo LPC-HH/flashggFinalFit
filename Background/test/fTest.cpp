@@ -321,6 +321,10 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   double chi2_test = 0;
   double chi2_sbtest = 0;
 
+  double chi2_fit_nominal = 0;
+  double chi2_test_nominal = 0;
+  double chi2_sbtest_nominal = 0;
+
   int n_fit = 0;
   int n_test = 0;
   int n_sbtest = 0;
@@ -330,9 +334,9 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
     double x, y;
     hist->GetPoint(i, x, y);
 
-    if (y <= 0) continue;
+    //if (y <= 0) continue;
 
-    //double fit_val = curve->interpolate(x);
+    double fit_val = curve->interpolate(x);
     //double chi2_bin = (y - fit_val)*(y - fit_val) / y;
     double binWidth = (mgg_high - mgg_low) / double(nBinsForMass);
     double xlow  = x - 0.5 * binWidth;
@@ -349,7 +353,7 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
     RooAbsReal* binInt = mpdf->createIntegral(*mass, RooFit::Range("thisBin"));
     RooAbsReal* sbInt  = mpdf->createIntegral(*mass, RooFit::Range("SB1,SB2"));
 
-    double fit_val = nSB * binInt->getVal() / sbInt->getVal();
+    //double fit_val = nSB * binInt->getVal() / sbInt->getVal();
 
     delete binInt;
     delete sbInt;
@@ -360,6 +364,12 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
         chi2_bin = 2.0 * (fit_val - y + y * log(y / fit_val));
       else
         chi2_bin = 2.0 * fit_val;
+    }
+
+    double chi2_bin_nominal = 0.0;
+    //double fit_val = curve->interpolate(x);
+    if (fit_val > 0) {
+      chi2_bin_nominal = (y - fit_val)*(y - fit_val) / fit_val;
     }
 
     bool in_fit =
@@ -373,16 +383,19 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
     // --- accumulate ---
     if (in_fit) {
       chi2_fit += chi2_bin;
+      chi2_fit_nominal += chi2_bin_nominal;
       n_fit++;
     }
 
     if (in_test) {
       chi2_test += chi2_bin;
+      chi2_test_nominal += chi2_bin_nominal;
       n_test++;
     }
 
     if (in_fit || in_test) {
       chi2_sbtest += chi2_bin;
+      chi2_sbtest_nominal += chi2_bin_nominal;
       n_sbtest++;
     }
 
@@ -390,7 +403,8 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
     std::cout << "[BIN] x=" << std::fixed << std::setprecision(3) << x
               << " data=" << y
               << " fit=" << fit_val
-              << " chi2=" << chi2_bin
+              << " chi2 poisson =" << chi2_bin
+              << " chi2 nominal =" << chi2_bin_nominal
               << " region="
               << (in_fit ? "FIT " : "")
               << (in_test ? "TEST" : "")
@@ -418,16 +432,24 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   double prob_test   = (ndof_test   > 0) ? TMath::Prob(chi2_test,   ndof_test)   : -1;
   double prob_sbtest = (ndof_sbtest > 0) ? TMath::Prob(chi2_sbtest, ndof_sbtest) : -1;
 
+  double prob_fit_nominal    = (ndof_fit    > 0) ? TMath::Prob(chi2_fit_nominal,    ndof_fit)    : -1;
+  double prob_test_nominal   = (ndof_test   > 0) ? TMath::Prob(chi2_test_nominal,   ndof_test)   : -1;
+  double prob_sbtest_nominal = (ndof_sbtest > 0) ? TMath::Prob(chi2_sbtest_nominal, ndof_sbtest) : -1;
+
   // -----------------------------
   // 6. 输出
   // -----------------------------
   std::cout << "\n========== GOF SUMMARY ==========" << std::endl;
 
   std::cout << "[FIT SB] "
-            << "chi2=" << chi2_fit
+            << "chi2 poisson =" << chi2_fit
             << " ndof=" << ndof_fit
             << " chi2/ndof=" << (ndof_fit>0 ? chi2_fit/ndof_fit : -1)
-            << " p=" << prob_fit << std::endl;
+            << " p=" << prob_fit
+            << "chi2 nominal = " << chi2_fit_nominal << std::endl;
+            /*<< " ndof=" << ndof_fit
+            << " chi2_poisson/ndof=" << (ndof_fit>0 ? chi2_fit_poisson/ndof_fit : -1)
+            << " p_poisson=" << prob_fit_poisson << std::endl;*/
 
   std::cout << "[TEST BAND] "
             << "chi2=" << chi2_test
@@ -439,7 +461,8 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
             << "chi2=" << chi2_sbtest
             << " ndof=" << ndof_sbtest
             << " chi2/ndof=" << (ndof_sbtest>0 ? chi2_sbtest/ndof_sbtest : -1)
-            << " p=" << prob_sbtest << std::endl;
+            << " p=" << prob_sbtest_nominal
+            << "chi2 nominal = " << chi2_sbtest_nominal << std::endl;
 
   std::cout << "=================================\n" << std::endl;
   
@@ -941,9 +964,9 @@ int main(int argc, char* argv[]){
 	}
 
 	vector<string> functionClasses;
-  functionClasses.push_back("Bernstein");
-	functionClasses.push_back("Exponential");
-	functionClasses.push_back("PowerLaw");
+  //functionClasses.push_back("Bernstein");
+	//functionClasses.push_back("Exponential");
+	//functionClasses.push_back("PowerLaw");
 	functionClasses.push_back("DYTheory_bern");
 	functionClasses.push_back("DYTheory_cheb");
 	functionClasses.push_back("DYTheory_pow");
@@ -952,9 +975,9 @@ int main(int argc, char* argv[]){
 //  functionClasses.push_back("ModBreitWigner");
   functionClasses.push_back("BWZ_exp");
 	map<string,string> namingMap;
-  namingMap.insert(pair<string,string>("Bernstein","bern"));
-	namingMap.insert(pair<string,string>("Exponential","exp"));
-	namingMap.insert(pair<string,string>("PowerLaw","pow"));
+  //namingMap.insert(pair<string,string>("Bernstein","bern"));
+	//namingMap.insert(pair<string,string>("Exponential","exp"));
+	//namingMap.insert(pair<string,string>("PowerLaw","pow"));
 	namingMap.insert(pair<string,string>("DYTheory_bern","dytbern"));
 	namingMap.insert(pair<string,string>("DYTheory_cheb","dytcheb"));
 	namingMap.insert(pair<string,string>("DYTheory_pow","dytpow"));
