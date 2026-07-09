@@ -1,6 +1,10 @@
 #include "../interface/RooDYSplineCore.h"
 #include "TFile.h"
 #include <iostream>
+#include <cstdlib>
+#include <stdexcept>
+#include <string>
+#include "TSystem.h"
 
 // ===== ���캯�������ٶ��ļ���=====
 RooDYSplineCore::RooDYSplineCore(const char* name,
@@ -25,13 +29,19 @@ Double_t RooDYSplineCore::evaluate() const {
 
   if (!cached) {
 
+    const char* cmssw_base = std::getenv("CMSSW_BASE");
+    if (!cmssw_base) {
+      throw std::runtime_error("CMSSW_BASE is not set.");
+    }
+
+    std::string filename = std::string(cmssw_base) + "/src/flashggFinalFit/Background/DYshapes/fewz_spline.root";
+
     // �����þ���·��������Ҫ��
-    const char* filename =
-      "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/DYshapes/fewz_spline.root";
+    //const char* filename =c"/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/DYshapes/fewz_spline.root";
 
     const char* splinename = "fewz_spline_smear";
 
-    TFile *f = TFile::Open(filename);
+    TFile *f = TFile::Open(filename.c_str());
 
     if (!f || f->IsZombie()) {
       std::cerr << "[ERROR] Cannot open spline file: " << filename << std::endl;
