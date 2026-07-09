@@ -48,7 +48,7 @@ def plotBiasSummary(cat_data, outputFolder):
         ax.errorbar(
             fit_data["toy_function"],
             fit_data["bias_pull"],
-            yerr=fit_data["bias_pull_err"],
+            yerr=0,
             marker="o",
             linewidth=1.8,
             markersize=5,

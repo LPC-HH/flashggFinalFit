@@ -10,7 +10,7 @@ while getopts "r" opt; do
 done
 
 if $REMOVE_PREVIOUS; then
-    #echo "Removing previous results..."
+    echo "Removing previous results..."
     echo "Removing previous workspaces"
     rm -rf ${ROOT_IO}/tuples/split_tuples/ggH/ws/*.root
     rm -rf ${ROOT_IO}/tuples/split_tuples/ggH/ws_GG2H/*.root
@@ -109,13 +109,25 @@ fi
 
 pushd ../Plots
 CSVFILE="out_yields_$(date +%Y%m%d_%H%M%S).csv"
-for cat in VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5 ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5; do
+for cat in ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5; do
   python3 makeMultipdfPlot.py \
    --inputWSFile ../Background/outdir_tutorial/CMS-HGG_multipdf_${cat}.root \
     --cat ${cat} \
     --ext tutorial \
-    --mass 125.38 \
     --nBins 160 \
+    --mass 125.38 \
+    --inputSignalWSFile ../Signal/outdir_packaged/CMS-HGG_sigfit_packaged_${cat}.root \
+    --outCSV ${CSVFILE}
+  
+done
+
+for cat in VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5; do
+  python3 makeMultipdfPlot.py \
+    --inputWSFile ../Background/outdir_tutorial/CMS-HGG_multipdf_${cat}.root \
+    --cat ${cat} \
+    --ext tutorial \
+    --mass 125.38 \
+    --nBins 80 \
     --inputSignalWSFile ../Signal/outdir_packaged/CMS-HGG_sigfit_packaged_${cat}.root \
     --outCSV ${CSVFILE}
   

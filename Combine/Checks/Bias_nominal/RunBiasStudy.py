@@ -67,7 +67,7 @@ if opts.toys:
     print("\nCreating toys")
     if not os.path.isdir('BiasToys'): os.system('mkdir -p BiasToys')
     os.system('rm -f BiasToys/*.root')
-    toyCmdBase = 'combine -m %.4f -d %s -M GenerateOnly --expectSignal %.4f -s %g --saveToys %s '%(opts.mH, opts.datacard, opts.expectSignal, opts.seed, opts.combineOptions)
+    toyCmdBase = 'combine -m %.4f -d %s -M GenerateOnly --expectSignal %.4f -s %g --saveToys'%(opts.mH, opts.datacard, opts.expectSignal, opts.seed)
     #print("Base toy command:")
     #print(toyCmdBase)
     #print()
@@ -77,13 +77,13 @@ if opts.toys:
         print("Creating toys for: " + name)
         if opts.nToys > opts.split:
             for isplit in range(opts.nToys//opts.split):
-                toyCmd = toyCmdBase + ' -t %g -n _%s_split%g --setParameters %s=%g --freezeParameters %s'%(opts.split, name, isplit, indexName, ipdf, indexName)
+                toyCmd = toyCmdBase + ' -t %g -n _%s_split%g --setParameters %s=%g,r=1 --freezeParameters %s'%(opts.split, name, isplit, indexName, ipdf, indexName)
                 print("Run toy command:")
                 #print(toyCmd + "\n")
                 run(toyCmd, dry=opts.dryRun)
                 os.system('mv higgsCombine_%s* %s'%(name, toyName(name,opts.BDTCategory,split=isplit)))
         else: 
-            toyCmd = toyCmdBase + ' -t %g -n _%s --setParameters %s=%g --freezeParameters %s'%(opts.nToys, name, indexName, ipdf, indexName)
+            toyCmd = toyCmdBase + ' -t %g -n _%s --setParameters %s=%g,r=1 --freezeParameters %s'%(opts.nToys, name, indexName, ipdf, indexName)
             print("Run toy command:")
             #print(toyCmd + "\n")
             run(toyCmd, dry=opts.dryRun)
@@ -94,7 +94,7 @@ print()
 if opts.fits:
     if not os.path.isdir('BiasFits'): os.system('mkdir -p BiasFits')
     os.system('rm -f BiasFits/*.root')
-    fitCmdBase = 'combine -m %.4f -d %s -M MultiDimFit -P %s --algo singles %s '%(opts.mH, opts.datacard, opts.poi, opts.combineOptions)
+    fitCmdBase = 'combine -m %.4f -d %s -M MultiDimFit -P %s --algo singles %s --robustFit 1'%(opts.mH, opts.datacard, opts.poi, opts.combineOptions)
     #print("Base fits command:")
     #print(fitCmdBase)
     #quit()
@@ -112,7 +112,7 @@ if opts.fits:
                     os.system('mv higgsCombine_%s* %s'%(name, fitName(name,fitFxnName, opts.BDTCategory, split=isplit)))
                 run('hadd %s BiasFits/*%s*%s*split*%s*.root'%(fitName(name, fitFxnName, opts.BDTCategory), opts.BDTCategory, name, fitFxnName), dry=opts.dryRun)
             else:
-                fitCmd = fitCmdBase + ' -t %g -n _%s --toysFile=%s --setParameters %s=%g --freezeParameters MH,%s'%(opts.nToys, name + "toy_" + fitFxnName + "fit", toyName(name, opts.BDTCategory), indexName, fitipdf, indexName)
+                fitCmd = fitCmdBase + ' -t %g -n _%s --toysFile=%s --setParameters %s=%g,r=1 --freezeParameters MH,%s'%(opts.nToys, name + "toy_" + fitFxnName + "fit", toyName(name, opts.BDTCategory), indexName, fitipdf, indexName)
                 print("Run fits command:")
                 #print(fitCmd + "\n")
                 #quit()
@@ -128,7 +128,21 @@ if opts.plots:
         for fitipdf, fitpdfName in indexNameMap.items():
             fitFxnName = shortName(fitpdfName)
             tfile = r.TFile(fitName(name, fitFxnName, opts.BDTCategory))
-            tree = tfile.Get('limit')
+            if not tfile or tfile.IsZombie():
+                print("Missing/bad fit file:", fitName(name, fitFxnName, opts.BDTCategory))
+                continue
+
+            tree = tfile.Get("limit")
+            if not tree:
+                print("No limit tree in:", fitName(name, fitFxnName, opts.BDTCategory))
+                continue
+
+            print(name, fitFxnName, "entries =", tree.GetEntries())
+            if tree.GetEntries() == 0:
+                print("No fit entries:", fitName(name, fitFxnName, opts.BDTCategory))
+                continue
+
+            print('pullsForTruth_%s'%name, '%s pull distribution using %s to fit %s toys'%(opts.BDTCategory,fitFxnName,name))
             pullHist = r.TH1F('pullsForTruth_%s'%name, '%s pull distribution using %s to fit %s toys'%(opts.BDTCategory,fitFxnName,name), 160, -8., 8.)
             pullHist.GetXaxis().SetTitle('Pull')
             pullHist.GetYaxis().SetTitle('Entries')
