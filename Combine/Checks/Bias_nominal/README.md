@@ -67,3 +67,18 @@ After the bias study is run, to generate the bias study plots, run
 ```
 python3 plotBiasResults.py -c <outputCSVname>.csv
 ```
+
+## Running condor jobs
+In order to get the condor jobs working, you need to tar the CMSSW environment to send in the input files for the condor job. This needs to be redone anytime there is a change
+```
+cd $CMSSW_BASE/..
+tar -czf CMSSW_14_1_0_pre4.tgz --exclude='*.pdf' --exclude='*.png' --exclude='*.csv' --exclude='*.out' --exclude='*.log' --exclude='*.err' --exclude='*/.git/*' CMSSW_14_1_0_pre4
+```
+Once the directory has been succesfully compressed, check the size with ls -alh (should be less than 500 MB)
+Next, cd back to this directory, and make any needed changes to run_nominal_by_cat.sh.
+Now run
+```
+python3 create_bias_jobs.py
+bash condor_bias_job_sender.sh
+```
+All of the output files should be then in the condor/ directory and can be analyzed for plotting with the plotBiasResults.py script

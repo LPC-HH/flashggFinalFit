@@ -22,9 +22,6 @@ for cat in categories:
 
     #make job folders
     os.system("mkdir -p " + output_dir)
-    os.system("mkdir -p " + output_dir + "/Fits/")
-    os.system("mkdir -p " + output_dir + "/Plots/")
-    os.system("mkdir -p " + output_dir + "/Toys/")
     os.system("mkdir -p " + output_dir + "/log/")
     os.system("mkdir -p " + output_dir + "/out/")
     os.system("mkdir -p " + output_dir + "/err/")
@@ -33,7 +30,7 @@ for cat in categories:
     os.system("cp Datacard_tutorial_%s_mu_inclusive.root"%(cat) + " %s/Datacard_%s.root"%(output_dir, cat))
     os.system("cp RunBiasStudy.py " + " %s/RunBiasStudy.py"%(output_dir))
     os.system("cp biasUtils.py " + " %s/biasUtils.py"%(output_dir))
-    os.system("cp combine " + " %s/."%(output_dir))
+    os.system(f"cp {CMSSW_BASE_DIR}/../{cmsswReleaseVersion}.tgz {output_dir}/{cmsswReleaseVersion}.tgz")
     os.system("cp run_nominal_by_cat.sh "+ " %s/run_nominal_by_cat.sh"%(output_dir))
 
     #make submission file
@@ -52,6 +49,7 @@ for cat in categories:
     transfer_files += output_dir + "/RunBiasStudy.py, "
     transfer_files += output_dir + "/biasUtils.py, "
     transfer_files += output_dir + "/run_nominal_by_cat.sh, "
+    transfer_files += output_dir + f"/{cmsswReleaseVersion}.tgz, "
 
     jobfile_JDL.write("transfer_input_files = " + transfer_files + "\n")
     jobfile_JDL.write("should_transfer_files = YES" + "\n")

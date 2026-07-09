@@ -9,7 +9,7 @@ parser = OptionParser()
 parser.add_option("-d","--datacard",default="Datacard.root")
 parser.add_option("-w","--workspace",default="w")
 parser.add_option("-t","--toys",action="store_true", default=False)
-parser.add_option("-n","--nToys",default=1000,type="int")
+parser.add_option("-n","--nToys",default=500,type="int")
 parser.add_option("-f","--fits",action="store_true", default=False)
 parser.add_option("-p","--plots",action="store_true", default=False)
 parser.add_option("-e","--expectSignal",default=1.,type="float")
@@ -81,12 +81,14 @@ if opts.toys:
                 print("Run toy command:")
                 #print(toyCmd + "\n")
                 run(toyCmd, dry=opts.dryRun)
+                print('mv higgsCombine_%s* %s'%(name, toyName(name,opts.BDTCategory,split=isplit)))
                 os.system('mv higgsCombine_%s* %s'%(name, toyName(name,opts.BDTCategory,split=isplit)))
         else: 
             toyCmd = toyCmdBase + ' -t %g -n _%s --setParameters %s=%g,r=1 --freezeParameters %s'%(opts.nToys, name, indexName, ipdf, indexName)
             print("Run toy command:")
             #print(toyCmd + "\n")
             run(toyCmd, dry=opts.dryRun)
+            print('mv higgsCombine_%s* %s'%(name, toyName(name, opts.BDTCategory)))
             os.system('mv higgsCombine_%s* %s'%(name, toyName(name, opts.BDTCategory)))
             
 print()
@@ -109,6 +111,7 @@ if opts.fits:
                     fitCmd = fitCmdBase + ' -t %g -n _%s_split%g --toysFile=%s --setParameters %s=%g --freezeParameters MH,%s'%(opts.split, name + "toy_" + fitFxnName + "fit", isplit, toyName(name,opts.BDTCategory, split=isplit), indexName, fitipdf, indexName)
                     print("Run fits command:")
                     run(fitCmd, dry=opts.dryRun)
+                    print('mv higgsCombine_%s* %s'%(name, fitName(name,fitFxnName, opts.BDTCategory, split=isplit)))
                     os.system('mv higgsCombine_%s* %s'%(name, fitName(name,fitFxnName, opts.BDTCategory, split=isplit)))
                 run('hadd %s BiasFits/*%s*%s*split*%s*.root'%(fitName(name, fitFxnName, opts.BDTCategory), opts.BDTCategory, name, fitFxnName), dry=opts.dryRun)
             else:
@@ -117,7 +120,7 @@ if opts.fits:
                 #print(fitCmd + "\n")
                 #quit()
                 run(fitCmd, dry=opts.dryRun)
-                #print('mv higgsCombine_%s* %s'%(name, fitName(name, fitFxnName)))
+                print('mv higgsCombine_%s* %s'%(name, fitName(name, fitFxnName, opts.BDTCategory)))
                 os.system('mv higgsCombine_%s* %s'%(name, fitName(name, fitFxnName, opts.BDTCategory)))
 
 if opts.plots:

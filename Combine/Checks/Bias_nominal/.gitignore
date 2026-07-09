@@ -4,3 +4,4 @@ condor/logs/*.out
 condor/Bias*
 *sender.sh
 docker_stderror
+*.tgz
