@@ -964,26 +964,26 @@ int main(int argc, char* argv[]){
 	}
 
 	vector<string> functionClasses;
-  //functionClasses.push_back("Bernstein");
-	//functionClasses.push_back("Exponential");
-	//functionClasses.push_back("PowerLaw");
+  functionClasses.push_back("Bernstein");
+  functionClasses.push_back("Exponential");
+	functionClasses.push_back("PowerLaw");
 	functionClasses.push_back("DYTheory_bern");
 	functionClasses.push_back("DYTheory_cheb");
 	functionClasses.push_back("DYTheory_pow");
 	functionClasses.push_back("DYTheory_lau");
-//  functionClasses.push_back("DYTheory");
-//  functionClasses.push_back("ModBreitWigner");
+  functionClasses.push_back("DYTheory");
+  functionClasses.push_back("ModBreitWigner");
   functionClasses.push_back("BWZ_exp");
 	map<string,string> namingMap;
-  //namingMap.insert(pair<string,string>("Bernstein","bern"));
-	//namingMap.insert(pair<string,string>("Exponential","exp"));
-	//namingMap.insert(pair<string,string>("PowerLaw","pow"));
+  namingMap.insert(pair<string,string>("Bernstein","bern"));
+	namingMap.insert(pair<string,string>("Exponential","exp"));
+	namingMap.insert(pair<string,string>("PowerLaw","pow"));
 	namingMap.insert(pair<string,string>("DYTheory_bern","dytbern"));
 	namingMap.insert(pair<string,string>("DYTheory_cheb","dytcheb"));
 	namingMap.insert(pair<string,string>("DYTheory_pow","dytpow"));
 	namingMap.insert(pair<string,string>("DYTheory_lau","dytlau")); 
-//  namingMap.insert(pair<string,string>("DYTheory","dyt"));
-//  namingMap.insert(pair<string,string>("ModBreitWigner","mBW"));
+  namingMap.insert(pair<string,string>("DYTheory","dyt"));
+  namingMap.insert(pair<string,string>("ModBreitWigner","mBW"));
   namingMap.insert(pair<string,string>("BWZ_exp","bwzexp"));
 
 	// store results here
