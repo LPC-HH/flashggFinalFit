@@ -8,25 +8,76 @@ import glob
 import pickle
 import math
 import json
+import csv
 from collections import OrderedDict as od
 
 from commonTools import *
 from commonObjects import *
+
+#CSVFILE="out_Yields.csv"
+
+def calc_pull_metrics(hdata, hfit):
+
+    pulls = []
+
+    for ibin in range(1, hdata.GetNbinsX()+1):
+
+        x = hdata.GetBinCenter(ibin)
+
+        if (x > blindingRegion[0]) and (x < blindingRegion[1]):
+            continue
+
+        d = hdata.GetBinContent(ibin)
+        e = hdata.GetBinError(ibin)
+
+        if e <= 0:
+            continue
+
+        pdf_bin = hfit.FindBin(x)
+        f = hfit.GetBinContent(pdf_bin)
+
+        pulls.append((d-f)/e)
+
+    pulls = np.asarray(pulls)
+
+    if len(pulls) < 3:
+        return None
+
+    # -------------------
+    # Durbin-Watson
+    # -------------------
+
+    dw = np.sum(np.diff(pulls)**2) / np.sum(pulls**2)
+
+    # -------------------
+    # neighbour product
+    # -------------------
+
+    prod = np.sum(pulls[:-1]*pulls[1:])
+
+    # -------------------
+    # lag1 correlation
+    # -------------------
+
+    r = np.corrcoef(pulls[:-1],pulls[1:])[0,1]
+
+    return dw,prod,r
 
 def get_options():
   parser = OptionParser()
   parser.add_option("--inputWSFile", dest="inputWSFile", default=None, help="Input multipdf RooWorkspace file")
   parser.add_option("--cat", dest="cat", default="RECO_0J_PTH_0_10_Tag0", help="Analysis category")
   parser.add_option("--unblind", dest="unblind", default=False, action="store_true", help="Unblind signal region")
-  parser.add_option("--blindingRegion", dest="blindingRegion", default="120,130", help="Region in xvar to blind")
+  parser.add_option("--blindingRegion", dest="blindingRegion", default="123,127", help="Region in xvar to blind")
   parser.add_option("--doZeroes", dest="doZeroes", default=False, action="store_true", help="Add error of unity to zero bins to show on plot")
   parser.add_option("--ext", dest="ext", default='', help="Extension for saving")
   parser.add_option("--mass", dest="mass", default=125.38, help="Higgs mass")
   parser.add_option("--xvar", dest="xvar", default="CMS_hgg_mass,m_{#mu#mu},GeV", help="X-variable: name,title,units")
-  parser.add_option("--nBins", dest="nBins", default=160, type='int', help="1GeV per bin, Number of bins")
+  parser.add_option("--nBins", dest="nBins", default=160, type='int', help=" 0.25 GeV per bin, Number of bins")
   parser.add_option("--pdfNBins", dest="pdfNBins", default=3200, type='int', help="Number of bins")
   parser.add_option("--translateCats", dest="translateCats", default=None, help="JSON to store cat translations")
   parser.add_option("--inputSignalWSFile", dest="inputSignalWSFile", default=None, help="Input wsig_13TeV RooWorkspace file. If not none this will add signal to plot")
+  parser.add_option("--outCSV", dest="outCSV", default="out_yields.csv", help="Filename for the yields output CSV file")
   
   return parser.parse_args()
 (opt,args) = get_options()
@@ -36,8 +87,10 @@ if opt.inputWSFile is not None:
   f = ROOT.TFile(opt.inputWSFile)
   w = f.Get("multipdf")
 
-SB1_low, SB1_high = 110, 120
-SB2_low, SB2_high = 130, 150
+SB1_low, SB1_high = 110, 123 
+SB2_low, SB2_high = 127, 150
+
+yields = [] #FWHM, totalSig, totalBKG, BKGHWHM, SigHWHM
 
 # Define blinding region
 blindingRegion = [float(opt.blindingRegion.split(",")[0]),float(opt.blindingRegion.split(",")[1])]
@@ -107,25 +160,36 @@ print("data_sb_integral:", data_sb_integral)
 print("\n\n\n\n")
 
 for bname, bpdf in list(bpdfs.items()):
+  #print("pdfBins: %s | xMin: %s | xMax: %s"%(opt.pdfNBins,xvar.getMin(),xvar.getMax()))
   hists[bname] = bpdf.createHistogram("h_%s"%bname,xvar,ROOT.RooFit.Binning(opt.pdfNBins,xvar.getMin(),xvar.getMax()))
   #hists[bname].Scale(norm)
   pdf_sb_integral = bpdf.createIntegral(ROOT.RooArgSet(xvar),ROOT.RooFit.NormSet(xvar),ROOT.RooFit.Range("SB1,SB2")).getVal()
   scale = data_sb_integral / pdf_sb_integral 
-  print("\n\n\n\n")
-  print("data_sb_integral:", data_sb_integral)
-  print("pdf_sb_integral:", pdf_sb_integral)
-  print("scale:", scale)
-  print("\n\n\n\n")
+  #print("\n\n\n\n%s"%bname)
+  #print("data_sb_integral:", data_sb_integral)
+  #print("pdf_sb_integral:", pdf_sb_integral)
+  #print("simple pdf int: ", hists[bname].Integral("width"))
+  #print("simple data int: ", hists['data'].Integral("width"))
+  #print("simple data int (no norm): ", hists['data'].Integral())
+  #print("data bw: ", hists['data'].GetXaxis().GetBinWidth(1))
+  #print("data bc: ", hists['data'].GetBinContent(1))
+  #print("scale:", scale)
   hists[bname].Scale(scale*(float(opt.pdfNBins)/float(opt.nBins)))
+  #print("simple pdf int post: ", hists[bname].Integral("width"))
+  #print("simple pdf int post (no norm): ", hists[bname].Integral())
+  print("\n\n\n\n")
 
   if bname == bpdf_bf_name:
     hists["%s_nBins"%bname] = bpdf.createHistogram("h_%s_nBins"%bname,xvar,ROOT.RooFit.Binning(opt.nBins,xvar.getMin(),xvar.getMax()))
     hists["%s_nBins"%bname].Scale(scale)
 
-# Scale pdf histograms to match data
+#Scale pdf histograms to match data
 xvar_range = int(xvar.getBinning().highBound()-xvar.getBinning().lowBound())
+print("XVAR RANGE: ", xvar_range)
 if opt.nBins != xvar_range:
-  for h in list(hists.values()): h.Scale(float(xvar_range)/opt.nBins)
+  for name, h in hists.items(): 
+    #if(name != 'data'):
+    h.Scale(float(xvar_range)/opt.nBins)
   
 # ----------------------------------
 # Convert to Events / GeV  
@@ -134,7 +198,18 @@ binWidth = (xvar.getMax() - xvar.getMin()) / float(opt.nBins)
 print("[INFO] binWidth =", binWidth)
 
 for name, h in hists.items():
+    #bw = h.GetXaxis().GetBinWidth(1)
+    #bc = h.GetBinContent(1)
+    #print("simple pdf int pre: ", h.Integral("width"))
+    #print(name + " | bw: " + str(bw) + " | bc: " + str(bc))
+    #if name == 'data':
+    #  continue
     h.Scale(1.0 / binWidth)
+    h.Scale(1.0 / binWidth)
+    #bw = h.GetXaxis().GetBinWidth(1)
+    #bc = h.GetBinContent(1)
+    #print("simple pdf int post: ", h.Integral("width"))
+    #print(name + " | bwp: " + str(bw) + " | bcp: " + str(bc) + "\n\n")
 
 # Extract data histogram
 
@@ -147,7 +222,32 @@ if opt.doZeroes:
     if( not opt.unblind )&(bcenter > blindingRegion[0])&(bcenter < blindingRegion[1]): continue
     if hists['data'].GetBinContent(ibin)==0.:
       hists['data'].SetBinError(ibin,1)
+      
+metrics = {}
 
+for bname in bpdfs:
+
+    metrics[bname] = calc_pull_metrics(
+        hists['data'],
+        hists["%s_nBins"%bname] if ("%s_nBins"%bname) in hists else hists[bname]
+    )      
+
+
+'''
+bin1 = hists['data'].FindBin(122)
+bin2 = hists['data'].FindBin(128)
+axis = hists['data'].GetXaxis()
+nbins = hists['data'].GetNbinsX()
+centers = [axis.GetBinCenter(i) for i in range(1, nbins+1)]
+values = np.array([hists['data'].GetBinContent(i) for i in range(1, nbins+1)])
+print(values)
+#npHistData = np.array(hists['data'])
+
+s = np.sum(values[bin1:bin2])
+n = hists['data'].Integral(bin1, bin2)
+print(centers)
+print(f"-------------- Bin 1: {bin1} | Bin 2: {bin2} --------------")
+print(f"-------------- Data Number in HWHM: {n} {s} --------------")'''
 # Create ratio histograms
 hists_ratio = od()
 for bname in bpdfs:
@@ -160,6 +260,7 @@ for ibin in range(1,hists['data'].GetNbinsX()+1):
   if(not opt.unblind)&(bcenter>blindingRegion[0])&(bcenter<blindingRegion[1]): continue
   bval, berr = hists['data'].GetBinContent(ibin), hists['data'].GetBinError(ibin)
   bkgval = hists["%s_nBins"%bpdf_bf_name].GetBinContent(ibin)
+  #print(f"-------------- BKG val in bin: {bkgval} {ibin} --------------")
   hists_ratio['data'].SetBinContent(ibin,bval-bkgval)
   hists_ratio['data'].SetBinError(ibin,berr)
 
@@ -212,20 +313,27 @@ translateCats = {} if opt.translateCats is None else LoadTranslations(opt.transl
 
 blindingRegion = [float(opt.blindingRegion.split(",")[0]),float(opt.blindingRegion.split(",")[1])]
 
-canv = ROOT.TCanvas("canv_%s"%cat,"canv_%s"%cat,700,700)
-pad1 = ROOT.TPad("pad1_%s"%cat,"pad1_%s"%cat,0,0.35,1,1)
+canv = ROOT.TCanvas("canv_%s"%cat,"canv_%s"%cat,700,1000)
+pad1 = ROOT.TPad("pad1_%s"%cat,"pad1_%s"%cat,0,0.45,1,1.00)
 pad1.SetTickx()
 pad1.SetTicky()
 pad1.SetBottomMargin(0.18)
 pad1.SetLeftMargin(0.12)
 pad1.Draw()
-pad2 = ROOT.TPad("pad2_%s"%cat,"pad2_%s"%cat,0,0,1,0.45)
+pad2 = ROOT.TPad("pad2_%s"%cat,"pad2_%s"%cat,0,0.22,1,0.45)
 pad2.SetTickx()
 pad2.SetTicky()
 pad2.SetTopMargin(0.03)
 pad2.SetBottomMargin(0.25)
 pad2.SetLeftMargin(0.12)
 pad2.Draw()
+pad3 = ROOT.TPad("pad3_%s"%cat,"pad3_%s"%cat,0,0.00,1,0.22)
+pad3.SetTickx()
+pad3.SetTicky()
+pad3.SetTopMargin(0.03)
+pad3.SetBottomMargin(0.30)
+pad3.SetLeftMargin(0.12)
+pad3.Draw()
 padSizeRatio = 0.65/0.45
 
 # Axis options 
@@ -242,7 +350,7 @@ h_axes.SetTitle("")
 h_axes.GetXaxis().SetTitle("")
 h_axes.GetXaxis().SetLabelSize(0)
 h_axes.GetYaxis().SetTitleSize(0.05)
-h_axes.GetYaxis().SetTitle("Events / GeV")
+h_axes.GetYaxis().SetTitle("Events / %s GeV"%binWidth)
 h_axes.GetYaxis().SetTitleOffset(1.1)
 h_axes.GetYaxis().SetLabelSize(0.035)
 h_axes.GetYaxis().SetLabelOffset(0.007)
@@ -266,11 +374,14 @@ leg.SetTextSize(0.025)
 #if doSignal: leg.AddEntry(hists['spdf'],"#scale[1.5]{S model}","fl")
 #leg.AddEntry(0,"","")
 for bname in bpdfs: 
-  if "dytbern" in bname: fname = "#bf{DY Theory core with exp(Bernstein)}"
-  elif "dytcheb" in bname: fname = "#bf{DY Theory core with exp(Chebychev)}"
+  if "dytbern" in bname: fname = "#bf{DY Theory core with Bernstein}"
+  elif "dytcheb" in bname: fname = "#bf{DY Theory core with Chebychev}"
   elif "dytpow" in bname: fname = "#bf{DY Theory core with exp(Powerlaw)}"
-  elif "dytlau" in bname: fname = "#bf{DY Theory core with exp(Laurent)}"
+  elif "dytlau" in bname: fname = "#bf{DY Theory core with Laurent}"
   elif "bwzexp" in bname: fname = "#bf{bwz x exp}"
+  elif "bwzgam" in bname: fname = "#bf{bwzgamma}"
+  elif "2exp" in bname: fname = "#bf{weighted sum of 3 and 2 order exp}"
+  elif "2pow" in bname: fname = "#bf{weighted sum of 3 and 2 order pow}"
   elif "bern" in bname: fname = "#bf{Bernstein polynomial}"
   elif "exp" in bname: fname = "#bf{Sum of exponentials}"
   elif "pow" in bname: fname = "#bf{Sum of power law functions}"
@@ -278,10 +389,12 @@ for bname in bpdfs:
   elif "mBW" in bname: fname = "#bf{modified Breit Wigner funciton}"
   elif "dyt" in bname: fname = "#bf{DY Theory core with empirical function}"
   else: fname = "Unknown function"
-  if bname == bpdf_bf_name: lstr = "#splitline{%s}{Order %s (Best fit)}"%(fname,bname[-1])
-  else: lstr = "#splitline{%s}{Order %s}"%(fname,bname[-1])
+  dw,prod,r = metrics[bname]
+  metricStr = "DW %.2f  S %.1f"%(dw,prod)
+  if bname == bpdf_bf_name: lstr = "#splitline{%s}{%s  Order %s (Best fit)}"%(fname,metricStr,bname[-1])
+  else: lstr = "#splitline{%s}{%s  Order %s}"%(fname,metricStr,bname[-1])
   leg.AddEntry(hists[bname],lstr,"l")
-leg.Draw("Same")
+
 
 if doSignal:
   hists['spdf'].SetLineWidth(2)
@@ -289,18 +402,121 @@ if doSignal:
   hists['spdf'].SetFillColor(38)
   hists['spdf'].SetFillStyle(3001)
   hists['spdf'].GetXaxis().SetRangeUser(blindingRegion[0],blindingRegion[1])
-  hists['spdf'].Draw("Hist same cf")
+  lowBin = hists['spdf'].FindFirstBinAbove(0.5*hists['spdf'].GetMaximum())
+  highBin = hists['spdf'].FindLastBinAbove(0.5*hists['spdf'].GetMaximum())
+  fwhm_low = hists['spdf'].GetBinCenter(lowBin)
+  fwhm_high = hists['spdf'].GetBinCenter(highBin)
+  fwhmText = ROOT.TLatex()
+  fwhmText.SetTextFont(42)
+  fwhmText.SetTextAlign(11)
+  fwhmText.SetNDC()
+  fwhmText.SetTextSize(0.03)
+  fwhmText.DrawLatex(0.17,0.25,"FWHM = %1.2f GeV"%(fwhm_high-fwhm_low))
+  print(f'-------------- FWHM_low: {fwhm_low} | FWHM_high: {fwhm_high} --------------')
 
+  #signal_yieldFWHM = 0
+  #bkg_yieldFWHM = 0
+  #signal_yield_total = 0
+  #print("%s_nBins"%bpdf_bf_name)
+  #for ibin in range(1,hists['spdf'].GetNbinsX()+1):
+  #for ibin in range(lowBin, highBin+1):
+    #bcenter = hists['spdf'].GetBinCenter(ibin)
+    #sigval, sigerr = hists['spdf'].GetBinContent(ibin), hists['spdf'].GetBinError(ibin)
+    #bkgval = hists["%s_nBins"%bpdf_bf_name].GetBinContent(ibin)
+    #print(f"-------------- SIG val: {sigval} in bin: {ibin} @ Mmumu: {bcenter} --------------")
+    #signal_yield_total += sigval
+    #if ibin in range(lowBin, highBin+1):
+      #signal_yieldFWHM += sigval
+    #bkg_yieldFWHM += bkgval
+  
+  bkg_lowBin = hists["%s"%bpdf_bf_name].FindBin(fwhm_low)
+  bkg_highBin = hists["%s"%bpdf_bf_name].FindBin(fwhm_high)
+
+  #for ibin in range(bkg_lowBin, bkg_highBin+1):
+    #bcenter = hists["%s_nBins"%bpdf_bf_name].GetBinCenter(ibin)
+    #bkgval = hists["%s_nBins"%bpdf_bf_name].GetBinContent(ibin)
+    #bkg_yieldFWHM += bkgval
+    #print(f"-------------- BKG val: {bkgval} in bin: {ibin} @ Mmumu: {bcenter} --------------")
+
+  '''bkg_man_integral = 0
+  bw = hists['%s'%bpdf_bf_name].GetXaxis().GetBinWidth(1)
+  for ibin in range(1, hists['%s'%bpdf_bf_name].GetNbinsX()+1):
+      bcenter = hists['%s'%bpdf_bf_name].GetBinCenter(ibin)
+      bkg_man_integral += hists['%s'%bpdf_bf_name].GetBinContent(ibin)
+
+  bkg_man_integral *= bw / binWidth'''
+
+  signal_yield_total = hists['spdf'].Integral("width")
+  signal_yieldFWHM = hists['spdf'].Integral(lowBin, highBin, "width")
+  bkg_yield_total = hists["%s"%bpdf_bf_name].Integral("width") / binWidth
+  bkg_yieldFWHM = hists["%s"%bpdf_bf_name].Integral(bkg_lowBin, bkg_highBin, "width") / binWidth
+  #print(f"Signal Integral: {sigIntTot} | Signal Integral FWHM: {sigIntFWHM}")
+  #print("BKG MAN INT: ", bkg_man_integral)
+  print(f'-------------- Signal Yield Total: {signal_yield_total} | Signal Yield FHWM: {signal_yieldFWHM} --------------\n-------------- Bkg Yield Total: {bkg_yield_total} | Bkg Yield FWHM: {bkg_yieldFWHM} --------------')
+  hists['spdf'].Draw("Hist same cf")
+yieldText = ROOT.TLatex()
+yieldText.SetTextFont(42)
+yieldText.SetTextAlign(11)
+yieldText.SetNDC()
+yieldText.SetTextSize(0.03)
+yieldText.DrawLatex(0.17,0.65,"S = %.2f | S_FWHM = %.2f "%(signal_yield_total, signal_yieldFWHM))
+yieldText.DrawLatex(0.17,0.6,"B = %.2f | B_FWHM = %.2f "%(bkg_yield_total, bkg_yieldFWHM))
+yields = {'Category': Translate(cat,translateCats),'FWHM': (fwhm_high-fwhm_low), 'Total Sig': signal_yield_total, 'Total Bkg': bkg_yield_total, 'Sig FWHM': signal_yieldFWHM, 'Bkg FWHM': bkg_yieldFWHM}
 colourOptions=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+
 bnames = list(bpdfs.keys())
-for bidx, bname in enumerate(bnames):
-  hists[bname].SetLineWidth(2)
-  hists[bname].SetLineColor( colourOptions[bidx] )
-  hists[bname].Draw("HIST same C")
+
+fit_bnames  = []
+test_bnames = []
+
+for bname in bnames:
+
+    # -----------------------------
+    # test functions
+    # -----------------------------
+    if ("bwzexp" in bname) or \
+       ("bwzgam" in bname) or \
+       (("bern" in bname) and ("dytbern" not in bname)) or \
+       ("2pow" in bname) or \
+       ("2exp" in bname) or \
+       ("mBW" in bname):
+        test_bnames.append(bname)
+
+    # -----------------------------
+    # fit functions
+    # -----------------------------
+    else:
+        fit_bnames.append(bname)
+        
+# -----------------------------
+# Draw fit functions
+# -----------------------------
+for bidx, bname in enumerate(fit_bnames):
+
+    hists[bname].SetLineWidth(3)
+    hists[bname].SetLineStyle(1)
+    hists[bname].SetLineColor(colourOptions[bidx])
+
+    hists[bname].Draw("HIST L same")
+
+# -----------------------------
+# Draw test functions
+# -----------------------------
+for bidx, bname in enumerate(test_bnames):
+
+    hists[bname].SetLineWidth(1)
+    hists[bname].SetLineStyle(4)      # dashed
+    hists[bname].SetLineColor(colourOptions[bidx])
+
+    hists[bname].Draw("HIST L same")
+    
 hists['data'].SetMarkerStyle(20)
 hists['data'].SetMarkerColor(1)
 hists['data'].SetLineColor(1)
 hists['data'].Draw("Same PE")
+
+leg.Draw("Same")
+
 # --- Draw SB boundaries ---
 line_SB1 = ROOT.TLine(SB1_high, h_axes.GetMinimum(), SB1_high, h_axes.GetMaximum())
 line_SB2 = ROOT.TLine(SB2_low, h_axes.GetMinimum(), SB2_low, h_axes.GetMaximum())
@@ -355,10 +571,28 @@ if doSignal:
   hsr.GetXaxis().SetRangeUser(blindingRegion[0],blindingRegion[1])
   hsr.Draw("Hist same cf")
 
-for bidx, bname in enumerate(bnames):
-  hists_ratio[bname].SetLineWidth(2)
-  hists_ratio[bname].SetLineColor( colourOptions[bidx] )
-  hists_ratio[bname].Draw("HIST same C")
+# -----------------------------
+# Draw fit functions
+# -----------------------------
+for bidx, bname in enumerate(fit_bnames):
+
+    hists_ratio[bname].SetLineWidth(3)
+    hists_ratio[bname].SetLineStyle(1)
+    hists_ratio[bname].SetLineColor(colourOptions[bidx])
+
+    hists_ratio[bname].Draw("HIST L same")
+
+# -----------------------------
+# Draw test functions
+# -----------------------------
+for bidx, bname in enumerate(test_bnames):
+
+    hists_ratio[bname].SetLineWidth(1)
+    hists_ratio[bname].SetLineStyle(4)
+    hists_ratio[bname].SetLineColor(colourOptions[bidx])
+
+    hists_ratio[bname].Draw("HIST L same")
+    
 hists_ratio['data'].SetMarkerStyle(20)
 hists_ratio['data'].SetMarkerColor(1)
 hists_ratio['data'].SetLineColor(1)
@@ -372,6 +606,69 @@ lat2.SetNDC(1)
 lat2.SetTextSize(0.045*padSizeRatio)
 lat2.DrawLatex(0.87,0.91,"Best fit B function subtracted")
 
+pad3.cd()
+h_axes_ratio_zoom = hists_ratio['data'].Clone()
+h_axes_ratio_zoom.Reset()
+sigMax = hists['spdf'].GetMaximum()
+
+h_axes_ratio_zoom.SetMaximum( 1.5*sigMax )
+h_axes_ratio_zoom.SetMinimum(-1.5*sigMax )
+#h_axes_ratio.SetMaximum(1030)
+#h_axes_ratio.SetMinimum(-1050)
+h_axes_ratio_zoom.SetTitle("")
+h_axes_ratio_zoom.GetXaxis().SetTitleSize(0.05*padSizeRatio)
+h_axes_ratio_zoom.GetXaxis().SetLabelSize(0.035*padSizeRatio)
+h_axes_ratio_zoom.GetXaxis().SetLabelOffset(0.007)
+h_axes_ratio_zoom.GetXaxis().SetTickLength(0.03*padSizeRatio)
+h_axes_ratio_zoom.GetYaxis().SetLabelSize(0.035*padSizeRatio)
+h_axes_ratio_zoom.GetYaxis().SetLabelOffset(0.007)
+h_axes_ratio_zoom.GetYaxis().SetTitle("")
+h_axes_ratio_zoom.Draw()
+
+if doSignal:
+  hsr2 = hists['spdf'].Clone()
+  hsr2.SetLineWidth(2)
+  hsr2.SetLineColor(9)
+  hsr2.SetFillColor(38)
+  hsr2.SetFillStyle(3001)
+  hsr2.GetXaxis().SetRangeUser(blindingRegion[0],blindingRegion[1])
+  hsr2.Draw("Hist same cf")
+
+# -----------------------------
+# Draw fit functions
+# -----------------------------
+for bidx, bname in enumerate(fit_bnames):
+
+    hists_ratio[bname].SetLineWidth(3)
+    hists_ratio[bname].SetLineStyle(1)
+    hists_ratio[bname].SetLineColor(colourOptions[bidx])
+
+    hists_ratio[bname].Draw("HIST L same")
+
+# -----------------------------
+# Draw test functions
+# -----------------------------
+for bidx, bname in enumerate(test_bnames):
+
+    hists_ratio[bname].SetLineWidth(1)
+    hists_ratio[bname].SetLineStyle(4)
+    hists_ratio[bname].SetLineColor(colourOptions[bidx])
+
+    hists_ratio[bname].Draw("HIST L same")
+    
+hists_ratio['data'].SetMarkerStyle(20)
+hists_ratio['data'].SetMarkerColor(1)
+hists_ratio['data'].SetLineColor(1)
+hists_ratio['data'].Draw("Same PE")
+
+# Add TLatex to ratio plot
+lat3 = ROOT.TLatex()
+lat3.SetTextFont(42)
+lat3.SetTextAlign(33)
+lat3.SetNDC(1)
+lat3.SetTextSize(0.045*padSizeRatio)
+lat3.DrawLatex(0.87,0.91,"Best fit B function subtracted")
+
 canv.Update()
 
 ext_str = f"_{opt.ext}" if opt.ext != "" else ""
@@ -379,3 +676,12 @@ if not os.path.isdir(f"plots{ext_str}"):
   os.system(f"mkdir -p plots{ext_str}")
 canv.SaveAs(f"plots{ext_str}/multipdf_plot_%s.pdf"%(cat))
 canv.SaveAs(f"plots{ext_str}/multipdf_plot_%s.png"%(cat))
+
+csv_exists = os.path.isfile(opt.outCSV)
+
+with open(opt.outCSV, mode='a', newline='') as f:
+  writer = csv.DictWriter(f, fieldnames=yields.keys())
+
+  if not csv_exists:
+    writer.writeheader()
+  writer.writerow(yields)
