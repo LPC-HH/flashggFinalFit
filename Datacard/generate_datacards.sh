@@ -70,7 +70,7 @@ run_combined_datacard() {
 }
 
 ### ggH
-GGH_CATS=("ggHcat1" "ggHcat2" "ggHcat3")
+GGH_CATS=("ggHcat1" "ggHcat2" "ggHcat3" "ggHcat4" "ggHcat5" "ggHcat6")
 GGH_PATH="${ROOT_IO}/tuples/split_tuples/ggH/ws_GG2H"
 echo "---------------------------- ggH -----------------------------------"
 for cat in "${GGH_CATS[@]}"; do
@@ -87,7 +87,7 @@ done
 rm -f yields_tutorial/*.pkl
 
 ### VBF
-VBF_CATS=("VBFcat1" "VBFcat2" "VBFcat3" "VBFcat4")
+VBF_CATS=("VBFcat1" "VBFcat2" "VBFcat3" "VBFcat4" "VBFcat5" "VBFcat6")
 VBF_PATH="${ROOT_IO}/tuples/split_tuples/VBF/ws_VBF"
 echo "---------------------------- VBF -----------------------------------"
 for cat in "${VBF_CATS[@]}"; do

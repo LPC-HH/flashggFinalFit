@@ -89,9 +89,8 @@ def main() -> None:
     ensure_dir(Path("yields_tutorial"))
 
     # --- ggH ---
-    ggh_cats = ["ggHcat1", "ggHcat2", "ggHcat3", "ggHcat4", "ggHcat5", "ggHcat6"]
-    ggh_path = f"/eos/user/z/zhguo/flashgg/ntuples/ws_GG2H"
-
+    ggh_cats = ["ggHcat1", "ggHcat2", "ggHcat3", "ggHcat4", "ggHcat5"]
+    ggh_path = f"{root_io}/tuples/split_tuples/ggH/ws_GG2H"
     print("---------------------------- ggH -----------------------------------")
     for cat in ggh_cats:
         run_datacard(cat=cat, channel="ggH", ws_path=ggh_path)
@@ -112,6 +111,16 @@ def main() -> None:
             print(f"WARNING: expected yield file not found: {src}")
 
     rm_glob("yields_tutorial/*.pkl")
+
+    # --- VBF ---
+    vbf_cats = ["VBFcat1", "VBFcat2", "VBFcat3", "VBFcat4", "VBFcat5"]
+    vbf_path = f"{root_io}/tuples/split_tuples/VBF/ws_VBF"
+
+    print("---------------------------- VBF -----------------------------------")
+    for cat in vbf_cats:
+        run_datacard(cat=cat, channel="VBF", ws_path=vbf_path)
+
+    run_combined_datacard(cats=vbf_cats, channel="VBF", ws_path=vbf_path)
 
     # --- Final Combined ---
     print("---------------------------- Combined -----------------------------------")

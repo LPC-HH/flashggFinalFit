@@ -62,7 +62,73 @@ def calc_pull_metrics(hdata, hfit):
     r = np.corrcoef(pulls[:-1],pulls[1:])[0,1]
 
     return dw,prod,r
+    
+def calc_chi2(hdata, hfit, bname, n):#n:nbins per GeV
 
+    chi2 = 0.
+    nbin = 0
+
+    for ibin in range(1, hdata.GetNbinsX()+1):
+
+        x = hdata.GetBinCenter(ibin)
+
+        # only sidebands
+        inSB = ((SB1_low <= x <= SB1_high) or
+                (SB2_low <= x <= SB2_high))
+
+        if not inSB:
+            continue
+
+        y = hdata.GetBinContent(ibin)/n
+
+        pdf_bin = hfit.FindBin(x)
+        f = hfit.GetBinContent(pdf_bin)/n
+
+        #
+        # Same asymmetric Poisson uncertainty as fTest.cpp
+        #
+        if y == 0:
+            eyl = 0.0
+            eyh = ROOT.Math.gamma_quantile_c(
+                0.1586552539,
+                1.0,
+                1.0
+            )
+        else:
+            eyl = y - ROOT.Math.gamma_quantile(
+                0.1586552539,
+                y,
+                1.0
+            )
+
+            eyh = ROOT.Math.gamma_quantile_c(
+                0.1586552539,
+                y + 1.0,
+                1.0
+            ) - y
+
+        sigma = eyl if (y > f) else eyh
+
+        if sigma <= 0:
+            continue
+
+        pull = (y - f) / sigma
+
+        chi2 += pull * pull
+        nbin += 1
+
+    # polynomial order = number of free parameters
+    m = re.search(r'(\d+)$', bname)
+    npar = int(m.group(1)) if m else 0
+
+    ndof = nbin - npar
+
+    if ndof <= 0:
+        return None
+
+    return chi2, ndof, chi2 / ndof
+    
+    
 def get_options():
   parser = OptionParser()
   parser.add_option("--inputWSFile", dest="inputWSFile", default=None, help="Input multipdf RooWorkspace file")
@@ -225,12 +291,28 @@ if opt.doZeroes:
       
 metrics = {}
 
-for bname in bpdfs:
+for bname, bpdf in bpdfs.items():
 
-    metrics[bname] = calc_pull_metrics(
+    hfit = hists["%s_nBins"%bname] \
+           if ("%s_nBins"%bname) in hists \
+           else hists[bname]
+
+    pullMetric = calc_pull_metrics(
         hists['data'],
-        hists["%s_nBins"%bname] if ("%s_nBins"%bname) in hists else hists[bname]
-    )      
+        hfit
+    )
+
+    chi2Metric = calc_chi2(
+        hists['data'],
+        hfit,
+        bname,
+        1.0 / binWidth
+    )
+
+    metrics[bname] = (
+        pullMetric,
+        chi2Metric
+    )    
 
 
 '''
@@ -378,6 +460,10 @@ for bname in bpdfs:
   elif "dytcheb" in bname: fname = "#bf{DY Theory core with Chebychev}"
   elif "dytpow" in bname: fname = "#bf{DY Theory core with exp(Powerlaw)}"
   elif "dytlau" in bname: fname = "#bf{DY Theory core with Laurent}"
+  elif "dytBbern" in bname: fname = "#bf{DY Theory Bern core with Bernstein}"
+  elif "dytBcheb" in bname: fname = "#bf{DY Theory Bern core with Chebychev}"
+  elif "dytBpow" in bname: fname = "#bf{DY Theory Bern core with exp(Powerlaw)}"
+  elif "dytBlau" in bname: fname = "#bf{DY Theory Bern core with Laurent}"
   elif "bwzexp" in bname: fname = "#bf{bwz x exp}"
   elif "bwzgam" in bname: fname = "#bf{bwzgamma}"
   elif "2exp" in bname: fname = "#bf{weighted sum of 3 and 2 order exp}"
@@ -389,8 +475,16 @@ for bname in bpdfs:
   elif "mBW" in bname: fname = "#bf{modified Breit Wigner funciton}"
   elif "dyt" in bname: fname = "#bf{DY Theory core with empirical function}"
   else: fname = "Unknown function"
-  dw,prod,r = metrics[bname]
-  metricStr = "DW %.2f  S %.1f"%(dw,prod)
+  pullMetric, chi2Metric = metrics[bname]
+
+  dw, prod, r = pullMetric
+
+  if chi2Metric is None:
+      metricStr = "DW %.2f  S %.1f"%(dw,prod)
+      print("\n\n\n\n\nnone chi2metric\n\n\n\n")
+  else:
+      chi2, ndof, chi2ndof = chi2Metric
+      metricStr = "DW %.2f  S %.1f  #chi^{2}/ndf %.2f"%(dw,prod,chi2ndof)
   if bname == bpdf_bf_name: lstr = "#splitline{%s}{%s  Order %s (Best fit)}"%(fname,metricStr,bname[-1])
   else: lstr = "#splitline{%s}{%s  Order %s}"%(fname,metricStr,bname[-1])
   leg.AddEntry(hists[bname],lstr,"l")
@@ -476,7 +570,7 @@ for bname in bnames:
     # -----------------------------
     if ("bwzexp" in bname) or \
        ("bwzgam" in bname) or \
-       (("bern" in bname) and ("dytbern" not in bname)) or \
+       (("bern" in bname) and ("dytbern" not in bname) and ("dytBbern" not in bname)) or \
        ("2pow" in bname) or \
        ("2exp" in bname) or \
        ("mBW" in bname):

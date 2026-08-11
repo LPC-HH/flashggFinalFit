@@ -23,15 +23,15 @@ if $REMOVE_PREVIOUS; then
 fi
 
 CSVFILE="bias_results_$(date +%Y%m%d_%H%M%S).csv"
-for cat in ggHcat5; do
+for cat in ggHcat1; do
   cp ../../Datacard_tutorial_${cat}_mu_inclusive.root .
   python3 RunBiasStudy.py \
   -d Datacard_tutorial_${cat}_mu_inclusive.root -t \
   --generateCSV \
   -b ${cat} \
-  -f -c "--setParameterRanges r=-5,5 --cminDefaultMinimizerStrategy 0 --X-rtd MINIMIZER_freezeDisassociatedParams --X-rtd MINIMIZER_multiMin_hideConstants --X-rtd MINIMIZER_multiMin_maskConstraints" \
+  -f -c "--setParameterRanges r=-5,5 --cminDefaultMinimizerStrategy 1 --X-rtd MINIMIZER_freezeDisassociatedParams --X-rtd MINIMIZER_multiMin_hideConstants --X-rtd MINIMIZER_multiMin_maskConstraints" \
   -p --gaussianFit \
-  -n 1000 \
+  -n 10 \
   --outCSV ${CSVFILE}
 
 done   # -f -c "--setParameterRanges r=-50,50 --cminDefaultMinimizerStrategy 1 --X-rtd MINIMIZER_freezeDisassociatedParams --X-rtd MINIMIZER_multiMin_hideConstants --X-rtd MINIMIZER_multiMin_maskConstraints --verbose 2" \
