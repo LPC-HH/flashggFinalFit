@@ -69,8 +69,12 @@ python3 plotBiasResults.py -c <outputCSVname>.csv
 ```
 
 ## new bias fit
-*1.Remember to `make` and `make clean` in the bkg dir to make the changes to bkg work
-*2.Use `bash preparefiles.sh` to prepare the input workspace for the bias fit, notice this will also change the workspace in `Combine` dir
-*3.Use `python3 create_condor_jobs.py` to create the condor config, this is for the condor on ustc cluster, please change to your own setting, the CMSSW is not needed to be upload to *condor.
-*4.Submit the created condor config
-*5.`python3 merge_bias_results.py` to get the merged results
+1.Remember to `make` and `make clean` in the bkg dir to make the changes to bkg work.
+
+2.Use `bash preparefiles.sh` to prepare the input workspace for the bias fit, notice this will also change the workspace in `Combine` dir.
+
+3.Use `python3 create_condor_jobs.py` to create the condor config, this is for the condor on ustc cluster, please change to your own setting, the CMSSW is not needed to be upload to condor.
+
+4.Submit the created condor config.
+
+5.`python3 merge_bias_results.py` to get the merged results.
