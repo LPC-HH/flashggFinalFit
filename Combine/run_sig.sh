@@ -16,6 +16,8 @@ categories=(
     VBFcat3
     VBFcat4
     VBFcat5
+    VBFcat6
+    VBFcat7
     All
 )
 

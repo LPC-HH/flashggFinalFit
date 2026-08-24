@@ -12,29 +12,29 @@ done
 if $REMOVE_PREVIOUS; then
     echo "Removing previous results..."
     echo "Removing previous workspaces"
-    rm -rf ${ROOT_IO}/tuples/split_tuples/ggH/ws/*.root
-    rm -rf ${ROOT_IO}/tuples/split_tuples/ggH/ws_GG2H/*.root
-    rm -rf ${ROOT_IO}/tuples/split_tuples/VBF/ws/*.root
-    rm -rf ${ROOT_IO}/tuples/split_tuples/VBF/ws_VBF/*.root
+    rm -rfv ${ROOT_IO}/tuples/split_tuples/ggH/ws/*.root
+    rm -rfv ${ROOT_IO}/tuples/split_tuples/ggH/ws_GG2H/*.root
+    rm -rfv ${ROOT_IO}/tuples/split_tuples/VBF/ws/*.root
+    rm -rfv ${ROOT_IO}/tuples/split_tuples/VBF/ws_VBF/*.root
 
     echo "Removing background fits"
-    rm -rf Background/outdir_tutorial/*.root
-    rm -rf Background/outdir_tutorial/bkgfTest-Data/*.pdf
-    rm -rf Background/outdir_tutorial/bkgfTest-Data/*.png
-    rm -rf Background/outdir_tutorial/bkgfTest-Data/*.txt
+    rm -rfv Background/outdir_tutorial/*.root
+    rm -rfv Background/outdir_tutorial/bkgfTest-Data/*.pdf
+    rm -rfv Background/outdir_tutorial/bkgfTest-Data/*.png
+    rm -rfv Background/outdir_tutorial/bkgfTest-Data/*.txt
 
     echo "Removing datacards"
-    rm -rf Combine/Datacard*
-    rm -rf Datacard/Datacard*
+    rm -rfv Combine/Datacard*
+    rm -rfv Datacard/Datacard*
     
     echo "Removing signal fits"
-    rm -rf Signal/outdir_tutorial_combined/signalFit/Plots/*.p*
-    rm -rf Signal/outdir_tutorial_combined/signalFit/output/*.root
-    rm -rf Signal/outdir_packaged/*.root
-    rm -rf Signal/outdir_packaged/Plots/*.p*
+    rm -rfv Signal/outdir_tutorial_combined/signalFit/Plots/*.p*
+    rm -rfv Signal/outdir_tutorial_combined/signalFit/output/*.root
+    rm -rfv Signal/outdir_packaged/*.root
+    rm -rfv Signal/outdir_packaged/Plots/*.p*
 
     echo "Removing output plots"
-    rm -rf Plots/plots_tutorial/*.p*
+    rm -rfv Plots/plots_tutorial/*.p*
     exit 1
 fi
 
@@ -86,11 +86,11 @@ if ! $SKIP_BLOCK; then
 
   echo "[INFO] Packaging signal fits"
   python3 RunPackager.py \
-    --cats VBFcat1,VBFcat2,VBFcat3,VBFcat4,VBFcat5,ggHcat1,ggHcat2,ggHcat3,ggHcat4,ggHcat5 \
+    --cats VBFcat1,VBFcat2,VBFcat3,VBFcat4,VBFcat5,VBFcat6,VBFcat7,ggHcat1,ggHcat2,ggHcat3,ggHcat4,ggHcat5 \
     --exts tutorial_combined --batch local --massPoints 125 --year combined --mergeYears
 
   echo "[INFO] Running signal plotter"
-  for cat in VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5 ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5; do
+  for cat in VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5 VBFcat6 VBFcat7 ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5; do
     python3 RunPlotter.py --procs all --years combined --cats $cat --ext packaged --doFWHM 
   done
 
@@ -121,7 +121,7 @@ for cat in ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5; do
   
 done
 
-for cat in VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5; do
+for cat in VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5 VBFcat6 VBFcat7; do
   python3 makeMultipdfPlot.py \
     --inputWSFile ../Background/outdir_tutorial/CMS-HGG_multipdf_${cat}.root \
     --cat ${cat} \
@@ -147,8 +147,8 @@ bash copy.sh
 echo "[INFO] Creating workspaces for Combine"
 bash run_workspace.sh
 
-echo "[INFO] Running asymptotic limits"
-bash run_asym.sh  
+#echo "[INFO] Running asymptotic limits"
+#bash run_asym.sh
 
 echo "[INFO] Running significance"
 bash run_sig.sh  

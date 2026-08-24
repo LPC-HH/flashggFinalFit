@@ -26,7 +26,10 @@ def addConstantSyst(sd,_syst,options):
     else:
       mask = (sd['type']=='sig') & (~sd['cat'].str.contains("NOTAG"))
 
-      if 'valueByCat' in _syst:
+      if 'valueByCatAndProc' in _syst:
+        sd.loc[mask, _syst['name']] = sd[mask].apply(
+          lambda x: getValueByCatAndProc(x, _syst['valueByCatAndProc']), axis=1)
+      elif 'valueByCat' in _syst:
         sd.loc[mask, _syst['name']] = sd[mask].apply(
         lambda x: _syst['valueByCat'].get(x['cat'], '-'),axis=1)
       else:
@@ -47,6 +50,19 @@ def addConstantSyst(sd,_syst,options):
       sd.loc[(sd['type']=='sig')&(sd['year']==year)&(~sd['cat'].str.contains("NOTAG")), "%s_%s"%(_syst['name'],year)] = _syst['value'][year]
 
   return sd
+
+
+def getValueByCatAndProc(row, values):
+  """Return a constant nuisance value selected by category and process.
+
+  Process keys are matched as substrings of the datacard process name. For
+  example, `ggH` matches `ggH_2022preEE_hgg`, while `qqH` is the VBF sample.
+  """
+  values_for_cat = values.get(row['cat'], {})
+  for process_pattern, value in values_for_cat.items():
+    if process_pattern in row['proc']:
+      return value
+  return '-'
 
 def _formatSystValue(v):
   """
