@@ -1,13 +1,31 @@
 #!/usr/bin/env python
 import os
 import csv
+import numpy as np
 
 from biasUtils import *
 
 from optparse import OptionParser
 parser = OptionParser()
-parser.add_option("-d","--datacard",default="Datacard.root")
-parser.add_option("-w","--workspace",default="w")
+parser.add_option(
+    "-d","--toyDatacard",
+    default="Datacard_toy.root"
+)
+
+parser.add_option(
+    "-w","--fitDatacard",
+    default="Datacard_fit.root"
+)
+
+parser.add_option(
+    "--toyWorkspace",
+    default="w"
+)
+
+parser.add_option(
+    "--fitWorkspace",
+    default="w"
+)
 parser.add_option("-t","--toys",action="store_true", default=False)
 parser.add_option("-n","--nToys",default=1000,type="int")
 parser.add_option("-f","--fits",action="store_true", default=False)
@@ -34,56 +52,121 @@ import ROOT as r
 r.gROOT.SetBatch(True)
 r.gStyle.SetOptStat(2211)
 
-ws = r.TFile(opts.datacard).Get(opts.workspace)
+toyWS = r.TFile(opts.toyDatacard).Get(opts.toyWorkspace)
 
-pdfs = rooArgSetToList(ws.allPdfs())
-multipdfName = None
-for pdf in pdfs:
+fitWS = r.TFile(opts.fitDatacard).Get(opts.fitWorkspace)
+
+toyPdfs = rooArgSetToList(toyWS.allPdfs())
+
+toyMultipdfName = None
+
+for pdf in toyPdfs:
     if pdf.InheritsFrom("RooMultiPdf"):
-        if multipdfName is not None: raiseMultiError() 
-        multipdfName = pdf.GetName()
-        print('Conduct bias study for multipdf called %s'%multipdfName)
+        if toyMultipdfName is not None:
+            raiseMultiError()
 
-multipdf = ws.pdf(multipdfName)
+        toyMultipdfName = pdf.GetName()
+
+        print(
+            "Toy multipdf:",
+            toyMultipdfName
+        )
+
+
+toyMultipdf = toyWS.pdf(toyMultipdfName)
+
+fitPdfs = rooArgSetToList(fitWS.allPdfs())
+
+fitMultipdfName = None
+
+for pdf in fitPdfs:
+
+    if pdf.InheritsFrom("RooMultiPdf"):
+
+        if fitMultipdfName is not None:
+            raiseMultiError()
+
+        fitMultipdfName = pdf.GetName()
+
+        print(
+            "Fit multipdf:",
+            fitMultipdfName
+        )
+
+
+fitMultipdf = fitWS.pdf(fitMultipdfName)
 #print(multipdf)
 
-varlist = rooArgSetToList(ws.allCats())
-indexName = None
-for var in varlist:
-    if var.GetName().startswith('pdfindex'):
-        if indexName is not None: raiseMultiError()
-        indexName = var.GetName()
-        print('Found index called %s'%indexName)
-print()
+toyIndexName=None
+
+for var in rooArgSetToList(toyWS.allCats()):
+
+    if var.GetName().startswith("pdfindex"):
+
+        toyIndexName=var.GetName()
+
+        print(
+            "Toy index:",
+            toyIndexName
+        )
+
+        break
+        
+fitIndexName=None
+
+for var in rooArgSetToList(fitWS.allCats()):
+
+    if var.GetName().startswith("pdfindex"):
+
+        fitIndexName=var.GetName()
+
+        print(
+            "Fit index:",
+            fitIndexName
+        )
+
+        break
 
 from collections import OrderedDict as od
-indexNameMap = od()
-for ipdf in range(multipdf.getNumPdfs()):
+toyIndexNameMap = od()
+
+for ipdf in range(toyMultipdf.getNumPdfs()):
+
     if opts.selectFunction is not None:
-        if not multipdf.getPdf(ipdf).GetName().count(opts.selectFunction): continue
-    indexNameMap[ipdf] = multipdf.getPdf(ipdf).GetName()
+
+        if not toyMultipdf.getPdf(ipdf).GetName().count(opts.selectFunction):
+            continue
+
+
+    toyIndexNameMap[ipdf] = toyMultipdf.getPdf(ipdf).GetName()
+
+fitIndexNameMap = od()
+
+for ipdf in range(fitMultipdf.getNumPdfs()):
+
+    fitIndexNameMap[ipdf] = fitMultipdf.getPdf(ipdf).GetName()    
 
 if opts.toys:
     print("\nCreating toys")
     if not os.path.isdir('BiasToys'): os.system('mkdir -p BiasToys')
     os.system('rm -f BiasToys/*.root')
-    toyCmdBase = 'combine -m %.4f -d %s -M GenerateOnly --expectSignal %.4f -s %g --saveToys'%(opts.mH, opts.datacard, opts.expectSignal, opts.seed)
+    toyCmdBase = 'combine -m %.4f -d %s -M GenerateOnly --expectSignal %.4f -s %g --saveToys'%(opts.mH, opts.toyDatacard, opts.expectSignal, opts.seed)
     #print("Base toy command:")
     #print(toyCmdBase)
     #print()
     #quit()
-    for ipdf,pdfName in indexNameMap.items():
+    for ipdf,pdfName in toyIndexNameMap.items():
         name = shortName(pdfName)
         print("Creating toys for: " + name)
         if opts.nToys > opts.split:
             for isplit in range(opts.nToys//opts.split):
-                toyCmd = toyCmdBase + ' -t %g -n _%s_split%g --setParameters %s=%g,r=1 --freezeParameters %s'%(opts.split, name, isplit, indexName, ipdf, indexName)
+                toyCmd = toyCmdBase + ' -t %g -n _%s_split%g --setParameters %s=%g,r=1 --freezeParameters %s'%(opts.split, name, isplit, toyIndexName, ipdf, toyIndexName)
                 print("Run toy command:")
                 #print(toyCmd + "\n")
                 run(toyCmd, dry=opts.dryRun)
                 os.system('mv higgsCombine_%s* %s'%(name, toyName(name,opts.BDTCategory,split=isplit)))
         else: 
-            toyCmd = toyCmdBase + ' -t %g -n _%s --setParameters %s=%g,r=1 --freezeParameters %s'%(opts.nToys, name, indexName, ipdf, indexName)
+            toyCmd = toyCmdBase + ' -t %g -n _%s --setParameters %s=%g,r=1 --freezeParameters %s'%(opts.nToys, name, toyIndexName, ipdf, toyIndexName)
             print("Run toy command:")
             #print(toyCmd + "\n")
             run(toyCmd, dry=opts.dryRun)
@@ -92,309 +175,502 @@ if opts.toys:
 print()
 
 if opts.fits:
-    if not os.path.isdir('BiasFits'): os.system('mkdir -p BiasFits')
+
+    if not os.path.isdir('BiasFits'):
+        os.system('mkdir -p BiasFits')
+
     os.system('rm -f BiasFits/*.root')
-    fitCmdBase = 'combine -m %.4f -d %s -M MultiDimFit -P %s --algo singles %s --robustFit 1'%(opts.mH, opts.datacard, opts.poi, opts.combineOptions)
-    #print("Base fits command:")
-    #print(fitCmdBase)
-    #quit()
-    for ipdf,pdfName in indexNameMap.items():
+
+
+    fitCmdBase = (
+        'combine '
+        '-m %.4f '
+        '-d %s '
+        '-M MultiDimFit '
+        '-P %s '
+        '--algo singles '
+        '--robustFit 1 '
+        '--cminFallbackAlgo Minuit2,Migrad,0:0.1 '
+        '--cminFallbackAlgo Minuit2,Simplex,0:0.5 '
+        '--saveSpecifiedIndex %s '
+        '%s'
+        %
+        (
+            opts.mH,
+            opts.fitDatacard,
+            opts.poi,
+            fitIndexName,
+            opts.combineOptions
+        )
+    )
+
+
+    for ipdf,pdfName in toyIndexNameMap.items():
+
         name = shortName(pdfName)
-        print("Fitting for toy: " + name)
-        for fitipdf, fitpdfName in indexNameMap.items():
-            fitFxnName = shortName(fitpdfName)
-            print("Fitting toy: " + name + " wth pdf model: " + fitFxnName)
-            if opts.nToys > opts.split:
-                for isplit in range(opts.nToys//opts.split):
-                    fitCmd = fitCmdBase + ' -t %g -n _%s_split%g --toysFile=%s --setParameters %s=%g --freezeParameters MH,%s'%(opts.split, name + "toy_" + fitFxnName + "fit", isplit, toyName(name,opts.BDTCategory, split=isplit), indexName, fitipdf, indexName)
-                    print("Run fits command:")
-                    run(fitCmd, dry=opts.dryRun)
-                    os.system('mv higgsCombine_%s* %s'%(name, fitName(name,fitFxnName, opts.BDTCategory, split=isplit)))
-                run('hadd %s BiasFits/*%s*%s*split*%s*.root'%(fitName(name, fitFxnName, opts.BDTCategory), opts.BDTCategory, name, fitFxnName), dry=opts.dryRun)
-            else:
-                fitCmd = fitCmdBase + ' -t %g -n _%s --toysFile=%s --setParameters %s=%g,r=1 --freezeParameters MH,%s'%(opts.nToys, name + "toy_" + fitFxnName + "fit", toyName(name, opts.BDTCategory), indexName, fitipdf, indexName)
-                print("Run fits command:")
-                #print(fitCmd + "\n")
-                #quit()
-                run(fitCmd, dry=opts.dryRun)
-                #print('mv higgsCombine_%s* %s'%(name, fitName(name, fitFxnName)))
-                os.system('mv higgsCombine_%s* %s'%(name, fitName(name, fitFxnName, opts.BDTCategory)))
+
+        print(
+            "Discrete profiling fit for toy:",
+            name
+        )
+
+
+        if opts.nToys > opts.split:
+
+
+            for isplit in range(opts.nToys//opts.split):
+
+
+                fitCmd = (
+                    fitCmdBase
+                    +
+                    ' -t %g '
+                    '-n _%s_split%d '
+                    '--toysFile=%s '
+                    '--setParameters r=1 '
+                    '--freezeParameters MH'
+                    %
+                    (
+                        opts.split,
+                        name,
+                        isplit,
+                        toyName(
+                            name,
+                            opts.BDTCategory,
+                            split=isplit
+                        )
+                    )
+                )
+
+
+                print(fitCmd)
+
+                run(
+                    fitCmd,
+                    dry=opts.dryRun
+                )
+
+
+                os.system(
+                    'mv higgsCombine_%s* %s'
+                    %
+                    (
+                        name,
+                        fitName(
+                            name,
+                            "discrete",
+                            opts.BDTCategory,
+                            split=isplit
+                        )
+                    )
+                )
+
+
+            run(
+                'hadd %s BiasFits/*%s*split*.root'
+                %
+                (
+                    fitName(
+                        name,
+                        "discrete",
+                        opts.BDTCategory
+                    ),
+                    name
+                ),
+
+                dry=opts.dryRun
+            )
+
+
+        else:
+
+
+            fitCmd = (
+                fitCmdBase
+                +
+                ' -t %g '
+                '-n _%s '
+                '--toysFile=%s '
+                '--setParameters r=1 '
+                '--freezeParameters MH'
+                %
+                (
+                    opts.nToys,
+                    name,
+                    toyName(
+                        name,
+                        opts.BDTCategory
+                    )
+                )
+            )
+
+
+            print(fitCmd)
+
+
+            run(
+                fitCmd,
+                dry=opts.dryRun
+            )
+
+
+            os.system(
+                'mv higgsCombine_%s* %s'
+                %
+                (
+                    name,
+                    fitName(
+                        name,
+                        "discrete",
+                        opts.BDTCategory
+                    )
+                )
+            )
 
 if opts.plots:
-    import numpy as np
 
     if not os.path.isdir('BiasPlots'):
         os.system('mkdir -p BiasPlots')
 
-    os.system('rm -f BiasPlots/*.root')
 
-    for ipdf,pdfName in indexNameMap.items():
+    for ipdf,pdfName in toyIndexNameMap.items():
 
         name = shortName(pdfName)
 
-        for fitipdf, fitpdfName in indexNameMap.items():
 
-            fitFxnName = shortName(fitpdfName)
+        fitFile = fitName(
+            name,
+            "discrete",
+            opts.BDTCategory
+        )
 
-            tfile = r.TFile(fitName(name, fitFxnName, opts.BDTCategory))
 
-            if not tfile or tfile.IsZombie():
-                print("Missing/bad fit file:",
-                      fitName(name, fitFxnName, opts.BDTCategory))
-                continue
+        tfile = r.TFile(fitFile)
 
-            tree = tfile.Get("limit")
 
-            if not tree:
-                print("No limit tree in:",
-                      fitName(name, fitFxnName, opts.BDTCategory))
-                continue
-
-            print(name,
-                  fitFxnName,
-                  "entries =",
-                  tree.GetEntries())
-
-            if tree.GetEntries() == 0:
-                print("No fit entries:",
-                      fitName(name, fitFxnName, opts.BDTCategory))
-                continue
-
-            pullHist = r.TH1F(
-                'pullsForTruth_%s_%s'%(name,fitFxnName),
-                '%s pull distribution using %s to fit %s toys'
-                %(opts.BDTCategory,fitFxnName,name),
-                160,
-                -8.,
-                8.
-            )
-
-            pullHist.GetXaxis().SetTitle('Pull')
-            pullHist.GetYaxis().SetTitle('Entries')
-
-            pull_values = []
-
-            for itoy in range(opts.nToys):
-
-                tree.GetEntry(3*itoy)
-
-                if getattr(tree,'quantileExpected') != -1:
-                    raiseFailError(itoy,True)
-                    continue
-
-                bf = getattr(tree,'r')
-
-                tree.GetEntry(3*itoy+1)
-
-                if not abs(getattr(tree,'quantileExpected')-(-0.32)) < 0.001:
-                    raiseFailError(itoy,True)
-                    continue
-
-                lo = getattr(tree,'r')
-
-                tree.GetEntry(3*itoy+2)
-
-                if not abs(getattr(tree,'quantileExpected')-(0.32)) < 0.001:
-                    raiseFailError(itoy,True)
-                    continue
-
-                hi = getattr(tree,'r')
-
-                diff = bf - opts.expectSignal
-                unc  = 0.5*(hi-lo)
-
-                if unc > 0.:
-
-                    pull = diff/unc
-
-                    pullHist.Fill(pull)
-                    pull_values.append(pull)
-
-            # -----------------------------
-            # Median pull (NEW bias metric)
-            # -----------------------------
-
-            if len(pull_values) > 0:
-                median_pull = float(np.median(pull_values))
-            else:
-                median_pull = float("nan")
+        if not tfile or tfile.IsZombie():
 
             print(
-                "[BIAS] category=%s toy=%s fit=%s median_pull=%.5f"
-                %(opts.BDTCategory,
-                  name,
-                  fitFxnName,
-                  median_pull)
+                "Missing fit file:",
+                fitFile
             )
 
-            canv = r.TCanvas(
-                "c_%s_%s"%(name,fitFxnName),
-                "",
-                800,
-                600
+            continue
+
+
+        tree = tfile.Get("limit")
+
+
+        if not tree:
+
+            print(
+                "Missing limit tree:",
+                fitFile
             )
 
-            pullHist.Draw()
+            continue
 
-            # median line
-            medianLine = r.TLine(
-                median_pull,
-                0,
-                median_pull,
-                pullHist.GetMaximum()
-            )
 
-            medianLine.SetLineColor(r.kRed)
-            medianLine.SetLineWidth(3)
-            medianLine.Draw("same")
+        print(
+            name,
+            "entries =",
+            tree.GetEntries()
+        )
 
-            label = r.TLatex()
-            label.SetNDC()
-            label.SetTextSize(0.04)
 
-            label.DrawLatex(
-                0.58,
-                0.85,
-                "Median = %.3f"%median_pull
-            )
+        #
+        # store best-fit pdf statistics
+        #
+        bestIndexCount = {}
+        bestFunctionCount = {}
 
-            # ------------------------------------
-            # Gaussian fit (diagnostic information)
-            # ------------------------------------
 
-            gaus_mean = float("nan")
-            gaus_mean_err = float("nan")
+        #
+        # initialize all possible pdfs
+        #
+        for idx,func in fitIndexNameMap.items():
 
-            fit_sigma = float("nan")
-            fit_sigma_err = float("nan")
+            bestIndexCount[idx] = 0
 
-            fit_chi2 = float("nan")
-            fit_valid = 0
+            bestFunctionCount[
+                shortName(func)
+            ] = 0
 
-            if opts.gaussianFit:
 
-                r.gStyle.SetOptFit(111)
 
-                fit_result = pullHist.Fit("gaus","SQ")
+        pullHist = r.TH1F(
+            "pullsForTruth_%s"%name,
+            "Discrete profiling pull %s"%name,
+            160,
+            -8,
+            8
+        )
 
-                fit = pullHist.GetFunction("gaus")
 
-                fit_status = int(fit_result)
+        pullHist.GetXaxis().SetTitle("Pull")
+        pullHist.GetYaxis().SetTitle("Entries")
 
-                if fit and fit_status == 0:
+        pull_values = []
 
-                    gaus_mean = fit.GetParameter(1)
-                    gaus_mean_err = fit.GetParError(1)
+        for itoy in range(opts.nToys):
 
-                    fit_sigma = fit.GetParameter(2)
-                    fit_sigma_err = fit.GetParError(2)
 
-                    fit_chi2 = fit.GetChisquare()
+            #
+            # best fit entry
+            #
+            tree.GetEntry(3*itoy)
 
-                    fit_valid = 1
 
-                    print(
-                        "[GAUS] mean=%.5f +/- %.5f sigma=%.5f +/- %.5f"
-                        %(gaus_mean,
-                          gaus_mean_err,
-                          fit_sigma,
-                          fit_sigma_err)
+            if tree.quantileExpected != -1:
+                continue
+
+
+            bf = tree.r
+
+
+            #
+            # get best-fit pdf index
+            #
+            if hasattr(tree, fitIndexName):
+
+                best_index = int(
+                    getattr(tree, fitIndexName)
+                )
+
+
+                if best_index in bestIndexCount:
+
+                    bestIndexCount[best_index] += 1
+
+
+                    best_func = shortName(
+                        fitIndexNameMap[best_index]
                     )
 
-                else:
 
-                    print(
-                        "WARNING: Gaussian fit failed for %s %s %s"
-                        %(name,
-                          fitFxnName,
-                          opts.BDTCategory)
-                    )
+                    bestFunctionCount[best_func] += 1
+
+
+            #
+            # lower uncertainty
+            #
+            tree.GetEntry(3*itoy+1)
+
+
+            if abs(tree.quantileExpected+0.32)>0.001:
+                continue
+
+
+            lo = tree.r
+
+
+
+            #
+            # upper uncertainty
+            #
+            tree.GetEntry(3*itoy+2)
+
+
+            if abs(tree.quantileExpected-0.32)>0.001:
+                continue
+
+
+            hi = tree.r
+
+
+
+            unc = 0.5*(hi-lo)
+
+
+            if unc>0:
+
+                pull = (bf-opts.expectSignal)/unc
+
+                pullHist.Fill(pull)
+
+                pull_values.append(pull)
+
+
+
+        canv=r.TCanvas()
+
+        pullHist.Draw()
+
+
+
+        #
+        # Gaussian fit
+        #
+        if opts.gaussianFit:
+
+
+            r.gStyle.SetOptFit(111)
+
+
+            result=pullHist.Fit(
+                "gaus",
+                "S"
+            )
+
+
+            fit=pullHist.GetFunction("gaus")
+
+
+            if fit and int(result)==0:
+
+                bias_pull=fit.GetParameter(1)
+
+                bias_pull_err=fit.GetParError(1)
+
+                fit_sigma=fit.GetParameter(2)
+
+                fit_sigma_err=fit.GetParError(2)
+
+                fit_chi2=fit.GetChisquare()
+
+                fit_valid=1
+
+
+            else:
+
+                bias_pull=float("nan")
+                bias_pull_err=float("nan")
+                fit_sigma=float("nan")
+                fit_sigma_err=float("nan")
+                fit_chi2=float("nan")
+                fit_valid=0
+
+
 
             canv.SaveAs(
-                '%s.pdf'
-                %plotName(name,
-                          fitFxnName,
-                          opts.BDTCategory)
+                "%s.pdf"
+                %
+                plotName(
+                    name,
+                    "discrete",
+                    opts.BDTCategory
+                )
             )
+            
+            
+        if len(pull_values) > 0:
+            bias_pull_median = np.median(pull_values)
+        else:
+            bias_pull_median = float("nan")
 
-            canv.SaveAs(
-                '%s.png'
-                %plotName(name,
-                          fitFxnName,
-                          opts.BDTCategory)
-            )
 
-            # ------------------------
-            # CSV output
-            # ------------------------
+        #
+        # CSV output
+        #
+        if opts.generateCSV:
 
-            if opts.generateCSV:
 
-                fields = [
-                    "category",
-                    "toy_function",
-                    "fit_function",
-                    "n_toys",
+            fields=[
 
-                    "bias_pull",      # median pull
-                    "gaus_mean",
-                    "gaus_mean_err",
+                "category",
 
-                    "fit_sigma",
-                    "fit_sigma_err",
-                    "fit_chi2",
-                    "fit_valid"
-                ]
+                "toy_function",
+                "toy_index",
 
-                csv_exists = os.path.isfile(opts.outCSV)
+                "fit_method",
 
-                with open(opts.outCSV,
-                          mode='a',
-                          newline='') as f:
+                "bestfit_index_counts",
+                "bestfit_function_counts",
 
-                    writer = csv.DictWriter(
-                        f,
-                        fieldnames=fields
-                    )
+                "n_toys",
 
-                    if not csv_exists:
-                        writer.writeheader()
+                "bias_pull",
+                "bias_pull_median",
+                "bias_pull_err",
 
-                    writer.writerow({
+                "fit_sigma",
+                "fit_sigma_err",
 
-                        "category":
-                            opts.BDTCategory,
+                "fit_chi2",
 
-                        "toy_function":
-                            name,
+                "fit_valid"
 
-                        "fit_function":
-                            fitFxnName,
+            ]
 
-                        "n_toys":
-                            opts.nToys,
 
-                        # MEDIAN PULL = BIAS
-                        "bias_pull":
-                            median_pull,
+            csv_exists=os.path.isfile(opts.outCSV)
 
-                        "gaus_mean":
-                            gaus_mean,
 
-                        "gaus_mean_err":
-                            gaus_mean_err,
 
-                        "fit_sigma":
-                            fit_sigma,
+            with open(
+                opts.outCSV,
+                "a",
+                newline=""
+            ) as f:
 
-                        "fit_sigma_err":
-                            fit_sigma_err,
 
-                        "fit_chi2":
-                            fit_chi2,
+                writer=csv.DictWriter(
+                    f,
+                    fieldnames=fields
+                )
 
-                        "fit_valid":
-                            fit_valid
-                    })
 
-            tfile.Close()
+                if not csv_exists:
+                    writer.writeheader()
+
+
+
+                writer.writerow({
+
+                    "category":
+                        opts.BDTCategory,
+
+
+                    "toy_function":
+                        name,
+
+
+                    "toy_index":
+                        ipdf,
+
+
+                    "fit_method":
+                        "discrete",
+
+
+                    #
+                    # save dictionary directly
+                    #
+                    "bestfit_index_counts":
+                        str(bestIndexCount),
+
+
+                    "bestfit_function_counts":
+                        str(bestFunctionCount),
+
+
+                    "n_toys":
+                        opts.nToys,
+
+
+                    "bias_pull":
+                        bias_pull,
+                        
+                    "bias_pull_median":
+                        bias_pull_median,
+
+                    "bias_pull_err":
+                        bias_pull_err,
+
+
+                    "fit_sigma":
+                        fit_sigma,
+
+
+                    "fit_sigma_err":
+                        fit_sigma_err,
+
+
+                    "fit_chi2":
+                        fit_chi2,
+
+
+                    "fit_valid":
+                        fit_valid
+
+                })

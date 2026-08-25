@@ -37,6 +37,7 @@
 #include "../interface/PdfModelBuilder.h"
 #include <Math/PdfFuncMathCore.h>
 #include <Math/ProbFunc.h>
+#include <Math/QuantFuncMathCore.h>
 #include <iomanip>
 #include "boost/program_options.hpp"
 #include "boost/algorithm/string/split.hpp"
@@ -54,12 +55,13 @@ namespace po = program_options;
 
 bool BLIND = true;
 bool runFtestCheckWithToys=false;
-int mgg_low =110;
+int mgg_low =110; 
 int mgg_high =150;
-int nBinsForMass = 4*(mgg_high-mgg_low);
+int nBinsForMass;
+int nBinsPerGeV;
 double SB1_low = 110;
-double SB1_high = 120;
-double SB2_low = 130;
+double SB1_high = 123;
+double SB2_low = 127;
 double SB2_high = 150;
 
 double TEST1_low = 118;
@@ -87,7 +89,20 @@ RooAbsPdf* getPdf(PdfModelBuilder &pdfsModel, string type, int order, const char
   else if (type=="DYTheory_pow") return pdfsModel.getDYPowerLaw(Form("%s_dytpow%d",ext,order),order); 
   else if (type=="DYTheory_lau") return pdfsModel.getDYLaurent(Form("%s_dytlau%d",ext,order),order); 
   else if (type=="DYTheory_bern") return pdfsModel.getDYBernstein(Form("%s_dytbern%d",ext,order),order); 
+  else if (type=="DYTheoryBern_cheb") return pdfsModel.getDYBernChebychev(Form("%s_dytBcheb%d",ext,order),order); 
+  else if (type=="DYTheoryBern_pow") return pdfsModel.getDYBernPowerLaw(Form("%s_dytBpow%d",ext,order),order); 
+  else if (type=="DYTheoryBern_lau") return pdfsModel.getDYBernLaurent(Form("%s_dytBlau%d",ext,order),order); 
+  else if (type=="DYTheoryBern_bern") return pdfsModel.getDYBernBernstein(Form("%s_dytBbern%d",ext,order),order); 
   else if (type=="BWZ_exp") return pdfsModel.getBWZExpPoly(Form("%s_bwzexp%d",ext,order),order);
+  else if (type=="BWZ_gamma") {
+    return pdfsModel.getBWZGamma(Form("%s_bwzgam2", ext));
+  }
+  else if (type=="2Exp") {
+    return pdfsModel.get2Exp(Form("%s_2exp6", ext));
+  }
+  else if (type=="2PowerLaw") {
+    return pdfsModel.get2PowerLaw(Form("%s_2pow6", ext));
+  }
   else {
     cerr << "[ERROR] -- getPdf() -- type " << type << " not recognised." << endl;
     return NULL;
@@ -122,6 +137,13 @@ void runFit(RooAbsPdf *pdf, RooAbsData *data, double *NLL, int *stat_t, int MaxT
     ,RooFit::Range("SB1,SB2"),RooFit::Minimizer("Minuit2","minimize"),RooFit::SumW2Error(kTRUE)); //FIXME
           stat = fitTest->status();
 	  minnll = fitTest->minNll();
+    std::cout << "[FitResult DEBUG] " << std::endl;
+    std::cout << fitTest->status()
+          << " "
+          << fitTest->covQual()
+          << " "
+          << fitTest->edm()
+          << std::endl;
 	  if (stat!=0) params_test->assignValueOnly(fitTest->randomizePars());
 	  ntries++; 
 	}
@@ -280,12 +302,12 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   while((var = (RooRealVar*)iter->Next())) {
       std::cout << "  " << var->GetName() 
                 << " = " << var->getVal() 
-                << " ï¿½ï¿½ " << var->getError() << std::endl;
+                << " ?? " << var->getError() << std::endl;
   }
   delete iter;
 
   // -----------------------------
-  // 1. ç”»å›¾ï¼ˆç”¨äºŽå– hist ï¿?curveï¿?  // -----------------------------
+  // 1. »­Í¼£¨ÓÃÓÚÈ¡ hist ??curve??  // -----------------------------
   RooPlot *plot_chi2 = mass->frame();
 
   data->plotOn(plot_chi2,
@@ -295,9 +317,9 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   mpdf->plotOn(plot_chi2,
                Name("pdf"),
                RooFit::Range("full"),
-               RooFit::NormRange("SB1,SB2"));  //  å…³é”®ï¼šSBå½’ä¸€ï¿?
+               RooFit::NormRange("SB1,SB2"));  //  ¹Ø¼ü£ºSB¹éÒ»??
   // -----------------------------
-  // 2. ï¿?histogram ï¿?curve
+  // 2. ??histogram ??curve
   // -----------------------------
   RooHist *hist  = (RooHist*)plot_chi2->getObject(0);
   RooCurve *curve = (RooCurve*)plot_chi2->getObject(1);
@@ -308,7 +330,7 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   }
 
   // -----------------------------
-  // 3. æ‰‹åŠ¨è®¡ç®— chi2ï¼ˆå¤šåŒºåŸŸï¼?  // -----------------------------
+  // 3. ÊÖ¶¯¼ÆËã chi2£¨¶àÇøÓò??  // -----------------------------
   double chi2_fit = 0;
   double chi2_test = 0;
   double chi2_sbtest = 0;
@@ -322,10 +344,71 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
     double x, y;
     hist->GetPoint(i, x, y);
 
-    if (y <= 0) continue;
+//    if (y <= 0) continue;
 
-    double fit_val = curve->interpolate(x);
-    double chi2_bin = (y - fit_val)*(y - fit_val) / y;
+    //double fit_val = curve->interpolate(x);
+    //double chi2_bin = (y - fit_val)*(y - fit_val) / y;
+    double binWidth = (mgg_high - mgg_low) / double(nBinsForMass);
+    double xlow  = x - 0.5 * binWidth;
+    double xhigh = x + 0.5 * binWidth;
+
+    mass->setRange("thisBin", xlow, xhigh);
+
+    double nSB = data->sumEntries(
+        Form("(%s >= %f && %s <= %f) || (%s >= %f && %s <= %f)",
+            mass->GetName(), SB1_low, mass->GetName(), SB1_high,
+            mass->GetName(), SB2_low, mass->GetName(), SB2_high)
+    );
+
+    RooAbsReal* binInt = mpdf->createIntegral(*mass, RooFit::Range("thisBin"));
+    RooAbsReal* sbInt  = mpdf->createIntegral(*mass, RooFit::Range("SB1,SB2"));
+
+    double fit_val = nSB * binInt->getVal() / sbInt->getVal();
+
+    delete binInt;
+    delete sbInt;
+
+    double chi2_bin = 0.0;
+    
+//    if (fit_val > 0) {
+//      if (y > 0)
+//        chi2_bin = 2.0 * (fit_val - y + y * log(y / fit_val));
+//      else
+//        chi2_bin = 2.0 * fit_val;
+//    }
+
+
+
+    double eyl, eyh;
+
+    if (y==0) {
+        eyl = 0.0;
+        eyh = ROOT::Math::gamma_quantile_c(
+                  0.1586552539,
+                  1.0,
+                  1.0);
+    } else {
+        eyl = y -
+            ROOT::Math::gamma_quantile(
+                0.1586552539,
+                y,
+                1.0);
+
+        eyh =
+            ROOT::Math::gamma_quantile_c(
+                0.1586552539,
+                y+1.0,
+                1.0)
+            - y;
+    }
+    
+    double sigma =
+        (y > fit_val) ? eyl : eyh;
+
+    chi2_bin =
+        (y-fit_val)*(y-fit_val)/(sigma*sigma);
+
+
 
     bool in_fit =
         (x >= SB1_low && x <= SB1_high) ||
@@ -384,7 +467,7 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   double prob_sbtest = (ndof_sbtest > 0) ? TMath::Prob(chi2_sbtest, ndof_sbtest) : -1;
 
   // -----------------------------
-  // 6. è¾“å‡º
+  // 6. Êä³ö
   // -----------------------------
   std::cout << "\n========== GOF SUMMARY ==========" << std::endl;
 
@@ -458,8 +541,9 @@ void plot(RooRealVar *mass, RooMultiPdf *pdfs, RooCategory *catIndex, RooAbsData
   
   std::cout << "\n========== DEBUG START ==========\n";
 
-  double binWidth = 0.25;
-  int nBins = (mgg_high - mgg_low) / binWidth;
+  //double binWidth = 0.25;
+  //int nBins = (mgg_high - mgg_low) / binWidth;
+  int nBins = nBinsForMass;
 
   int color[7] = {kBlue,kRed,kMagenta,kGreen+1,kOrange+7,kAzure+10,kBlack};
   TLegend *leg = new TLegend(0.5,0.55,0.92,0.88);
@@ -796,10 +880,12 @@ int main(int argc, char* argv[]){
   bool is2011=false;
   bool verbose=false;
   bool saveMultiPdf=false;
+  bool fitForToy=false;
   int isFlashgg_ =1;
   string flashggCatsStr_;
   vector<string> flashggCats_;
- bool isData_ =0;
+  bool isData_ =0;
+  int nBinsPerGeV;
 
   po::options_description desc("Allowed options");
   desc.add_options()
@@ -819,7 +905,9 @@ int main(int argc, char* argv[]){
 		("flashggCats,f", po::value<string>(&flashggCatsStr_)->default_value("UntaggedTag_0,UntaggedTag_1,UntaggedTag_2,UntaggedTag_3,UntaggedTag_4,VBFTag_0,VBFTag_1,VBFTag_2,TTHHadronicTag,TTHLeptonicTag,VHHadronicTag,VHTightTag,VHLooseTag,VHEtTag"),       "Flashgg category names to consider")
     ("year", po::value<string>(&year_)->default_value("2016"),       "Dataset year")
     ("catOffset", po::value<int>(&catOffset)->default_value(0),       "Category numbering scheme offset")
+    ("nBinsPerGeV", po::value<int>(&nBinsPerGeV)->default_value(4),              "Number of bins per GeV")
     ("verbose,v",                                                                               "Run with more output")
+    ("fitForToy", "Use alternative background functions for toy generation")
   ;
   po::variables_map vm;
   po::store(po::parse_command_line(argc,argv,desc),vm);
@@ -831,6 +919,7 @@ int main(int argc, char* argv[]){
 
   if (vm.count("verbose")) verbose=true;
   if (vm.count("runFtestCheckWithToys")) runFtestCheckWithToys=true;
+  if (vm.count("fitForToy")) fitForToy=true;
 
   if (!verbose) {
     RooMsgService::instance().setGlobalKillBelow(RooFit::ERROR);
@@ -849,6 +938,12 @@ int main(int argc, char* argv[]){
 	ncats= flashggCats_.size();
 
 	}
+
+  nBinsForMass = nBinsPerGeV*(mgg_high-mgg_low);
+
+  //if(verbose) std::cout << "Using " << nBinsPerGeV << " bns per GeV" << std::endl;
+  std::cout << "Using " << nBinsPerGeV << " bins per GeV" << std::endl;
+  std::cout << "Using " << nBinsForMass << " total bins" << std::endl;
 
   if(verbose) std::cout << "[INFO] SaveMultiPdf? " << saveMultiPdf << std::endl;
   TFile *outputfile;
@@ -897,27 +992,56 @@ int main(int argc, char* argv[]){
 	}
 
 	vector<string> functionClasses;
-  functionClasses.push_back("Bernstein");
-	functionClasses.push_back("Exponential");
-	functionClasses.push_back("PowerLaw");
-	functionClasses.push_back("DYTheory_bern");
-	functionClasses.push_back("DYTheory_cheb");
-	functionClasses.push_back("DYTheory_pow");
-	functionClasses.push_back("DYTheory_lau");
-//  functionClasses.push_back("DYTheory");
-//  functionClasses.push_back("ModBreitWigner");
-  functionClasses.push_back("BWZ_exp");
+
+  if (!fitForToy){
+
+      // ===========================
+      // nominal background models
+      // ===========================
+
+//      functionClasses.push_back("DYTheory_bern");
+      functionClasses.push_back("DYTheory_cheb");
+      functionClasses.push_back("DYTheory_pow");
+      functionClasses.push_back("DYTheory_lau");
+
+//      functionClasses.push_back("DYTheoryBern_bern");
+      functionClasses.push_back("DYTheoryBern_cheb");
+      functionClasses.push_back("DYTheoryBern_pow");
+      functionClasses.push_back("DYTheoryBern_lau");
+
+  }
+  else{
+
+      // ===========================
+      // toy generation models
+      // ===========================
+
+      functionClasses.push_back("Bernstein");
+      functionClasses.push_back("BWZ_gamma");
+      functionClasses.push_back("2Exp");
+      functionClasses.push_back("2PowerLaw");
+      functionClasses.push_back("ModBreitWigner");
+      functionClasses.push_back("BWZ_exp");
+
+  }
+
 	map<string,string> namingMap;
   namingMap.insert(pair<string,string>("Bernstein","bern"));
-	namingMap.insert(pair<string,string>("Exponential","exp"));
-	namingMap.insert(pair<string,string>("PowerLaw","pow"));
+////	namingMap.insert(pair<string,string>("Exponential","exp"));
+////	namingMap.insert(pair<string,string>("PowerLaw","pow"));
 	namingMap.insert(pair<string,string>("DYTheory_bern","dytbern"));
 	namingMap.insert(pair<string,string>("DYTheory_cheb","dytcheb"));
 	namingMap.insert(pair<string,string>("DYTheory_pow","dytpow"));
 	namingMap.insert(pair<string,string>("DYTheory_lau","dytlau")); 
-//  namingMap.insert(pair<string,string>("DYTheory","dyt"));
-//  namingMap.insert(pair<string,string>("ModBreitWigner","mBW"));
+  namingMap.insert(pair<string,string>("DYTheoryBern_bern","dytBbern"));
+	namingMap.insert(pair<string,string>("DYTheoryBern_cheb","dytBcheb"));
+	namingMap.insert(pair<string,string>("DYTheoryBern_pow","dytBpow"));
+	namingMap.insert(pair<string,string>("DYTheoryBern_lau","dytBlau"));
+  namingMap.insert(pair<string,string>("ModBreitWigner","mBW"));
   namingMap.insert(pair<string,string>("BWZ_exp","bwzexp"));
+  namingMap.insert(pair<string,string>("BWZ_gamma","bwzgam"));
+  namingMap.insert(pair<string,string>("2Exp","2exp"));
+  namingMap.insert(pair<string,string>("2PowerLaw","2pow"));
 
 	// store results here
 
@@ -954,7 +1078,7 @@ int main(int argc, char* argv[]){
         //FIXME trying to remove duplicated names for 2016+2017 combination
 	//if (isFlashgg_) ext = Form("13TeV_%d",year_);
 	for (int cat=startingCategory; cat<ncats; cat++){
-
+    std::cout << "Cat: " << cat << "| Starting Cat: " << startingCategory << " | nCats: " << ncats << std::endl;
 		map<string,int> choices;
 		map<string,std::vector<int> > choices_envelope;
 		map<string,RooAbsPdf*> pdfs;
@@ -1028,9 +1152,19 @@ int main(int argc, char* argv[]){
 				funcType!=functionClasses.end(); funcType++){
         
 /////////////////////////////////////////////////////////////////////////////  
-        if (*funcType == "ModBreitWigner") {
+        if (*funcType == "ModBreitWigner" || *funcType == "BWZ_gamma" || *funcType == "2Exp" || *funcType == "2PowerLaw") {
           std::vector<int> pdforders;  // pdforders
-          int fixedOrder = 3;
+          int fixedOrder = 0;
+          if (*funcType == "ModBreitWigner"){
+              fixedOrder = 3;
+          }
+          if (*funcType == "BWZ_gamma"){
+              fixedOrder = 2;
+          }
+          if (*funcType == "2Exp" || *funcType == "2PowerLaw"){
+              fixedOrder = 6;
+          }
+          
     
           RooAbsPdf *bkgPdf = getPdf(pdfsModel, *funcType, fixedOrder, 
                       Form("env_pdf_%d_%s", (cat+catOffset), ext.c_str()));
@@ -1053,25 +1187,73 @@ int main(int argc, char* argv[]){
         
               double gofProb = 0;
               plot(mass, bkgPdf, data, 
-              Form("%s/%s%d_cat%d.pdf", outDir.c_str(), funcType->c_str(), fixedOrder, (cat+catOffset)),
+              Form("%s/%s%d_%s.pdf", outDir.c_str(), funcType->c_str(), fixedOrder, catname.c_str()),
               flashggCats_, fitStatus, &gofProb);
               
        /////////////////////////////////////////// 
        
               // add
-              allPdfs.insert(pair<string, RooAbsPdf*>(
-                  Form("%s%d", funcType->c_str(), fixedOrder), bkgPdf));
-              storedPdfs.add(*bkgPdf);
+if (saveMultiPdf) {
+
+    if (gofProb > 0.05) {
+
+        std::cout
+            << "[INFO] Adding fixed-order function to envelope : "
+            << bkgPdf->GetName()
+            << "  GOF = " << gofProb
+            << std::endl;
+
+        allPdfs.insert(
+            pair<string,RooAbsPdf*>(
+                Form("%s%d",
+                     funcType->c_str(),
+                     fixedOrder),
+                bkgPdf));
+
+        storedPdfs.add(*bkgPdf);
+
+        pdforders.push_back(fixedOrder);
+
+        double myNll = 2.*thisNll;
+
+        if (myNll + bkgPdf->getVariables()->getSize()
+                < MinimimNLLSoFar){
+
+            simplebestFitPdfIndex =
+                storedPdfs.getSize()-1;
+
+            MinimimNLLSoFar =
+                myNll +
+                bkgPdf->getVariables()->getSize();
+        }
+
+    } else {
+
+        std::cout
+            << "[INFO] Reject fixed-order function : "
+            << bkgPdf->GetName()
+            << "  GOF = " << gofProb
+            << std::endl;
+    }
+
+    choices_envelope.insert(
+        pair<string,std::vector<int>>(
+            *funcType,
+            pdforders));
+
+}
+
+
               pdforders.push_back(fixedOrder);
         
               // renew pdf index
               double myNll = 2 * thisNll;
               if ((myNll + bkgPdf->getVariables()->getSize()) < MinimimNLLSoFar) {
-                  simplebestFitPdfIndex = storedPdfs.getSize()-1;
+//                  simplebestFitPdfIndex = storedPdfs.getSize()-1;
                   MinimimNLLSoFar = myNll + bkgPdf->getVariables()->getSize();
               }
         
-              std::cout << "[FORCE] Added ModBreitWigner to envelope (order=" << fixedOrder << ")\n";
+              std::cout << "[FORCE] Added fixordered functions to envelope (order=" << fixedOrder << ")\n";
         
               // add debug
               std::cout << "[DEBUG] Stored PDFs count: " << storedPdfs.getSize() << std::endl;
@@ -1124,7 +1306,7 @@ int main(int argc, char* argv[]){
 					}
 					double gofProb=0;
 					// otherwise we get it later ...
-					if (!saveMultiPdf) plot(mass,bkgPdf,data,Form("%s/%s%d_cat%d.pdf",outDir.c_str(),funcType->c_str(),order,(cat+catOffset)),flashggCats_,fitStatus,&gofProb);
+					if (!saveMultiPdf) plot(mass,bkgPdf,data,Form("%s/%s%d_%s.pdf",outDir.c_str(),funcType->c_str(),order,catname.c_str()),flashggCats_,fitStatus,&gofProb);
 					cout << "[INFO]\t " << *funcType << " " << order << " " << prevNll << " " << thisNll << " " << chi2 << " " << prob << endl;
 					//fprintf(resFile,"%15s && %d && %10.2f && %10.2f && %10.2f \\\\\n",funcType->c_str(),order,thisNll,chi2,prob);
 					prevNll=thisNll;
@@ -1156,17 +1338,33 @@ int main(int argc, char* argv[]){
 				std::cout << "[INFO] Determining Envelope Functions for Family " << *funcType << ", cat " << cat << std::endl;
 				std::cout << "[INFO] Upper end Threshold for highest order function " << upperEnvThreshold <<std::endl;
         
-////////////////////////////////////////////////////////////////
+/*
 
-        if (*funcType == "ModBreitWigner") {
-    RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,0,Form("env_pdf_%d_%s",(cat+catOffset),ext.c_str()));
+        if (*funcType == "ModBreitWigner" || *funcType == "BWZ_gamma" || *funcType == "2Exp" || *funcType == "2PowerLaw") {
+        
+int fixedOrder = 0;
+
+if (*funcType=="ModBreitWigner")
+    fixedOrder = 3;
+else if (*funcType=="BWZ_gamma")
+    fixedOrder = 2;
+else
+    fixedOrder = 6;
+
+RooAbsPdf *bkgPdf =
+    getPdf(pdfsModel,
+           *funcType,
+           fixedOrder,
+           Form("env_pdf_%d_%s",(cat+catOffset),ext.c_str()));
+        
+    RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,fixedOrder,Form("env_pdf_%d_%s",(cat+catOffset),ext.c_str()));
     if (bkgPdf) {
         int fitStatus = 0;
         double thisNll = 0;
         runFit(bkgPdf,data,&thisNll,&fitStatus,3);
         double gofProb = 0;
-        plot(mass,bkgPdf,data,Form("%s/%s_cat%d.pdf",outDir.c_str(),funcType->c_str(),(cat+catOffset)),flashggCats_,fitStatus,&gofProb);
-        if (gofProb > 0.05) {
+        plot(mass,bkgPdf,data,Form("%s/%s_%s.pdf",outDir.c_str(),funcType->c_str(),catname.c_str()),flashggCats_,fitStatus,&gofProb);
+        if (gofProb > 0.01) {
             std::cout << "[ACCEPT] Adding "
                       << bkgPdf->GetName()
                       << " with gofProb="
@@ -1186,6 +1384,7 @@ int main(int argc, char* argv[]){
     }
     break;
 }
+*/
 
 				RooAbsPdf *bkgPdf =
     getPdf(pdfsModel,
@@ -1204,16 +1403,16 @@ if (bkgPdf){
     double gofProb = 0;
 
     plot(mass,bkgPdf,data,
-         Form("%s/%s%d_cat%d.pdf",
+         Form("%s/%s%d_%s.pdf",
          outDir.c_str(),
          funcType->c_str(),
          truthOrder,
-         (cat+catOffset)),
+         catname.c_str()),
          flashggCats_,
          fitStatus,
          &gofProb);
 
-    if (gofProb > 0.0005){
+    if (gofProb > 0.05){
 
         std::cout
           << "[INFO] Adding ONLY truth-order pdf to envelope: "
@@ -1256,7 +1455,7 @@ if (bkgPdf){
 		choices_envelope_vec.push_back(choices_envelope);
 		pdfs_vec.push_back(pdfs);
 
-		plot(mass,pdfs,data,Form("%s/truths_cat%d",outDir.c_str(),(cat+catOffset)),flashggCats_,cat);
+		plot(mass,pdfs,data,Form("%s/truths_%s",outDir.c_str(),catname.c_str()),flashggCats_,cat);
 
 		if (saveMultiPdf){
 
@@ -1307,7 +1506,8 @@ if (bkgPdf){
 			outputfile->Close();	
 		}
 
-		FILE *dfile = fopen(datfile.c_str(),"w");
+
+		/*FILE *dfile = fopen(datfile.c_str(),"w");
 		cout << "[RESULT] Recommended options" << endl;
 
 		for (int cat=startingCategory; cat<ncats; cat++){ 
@@ -1328,4 +1528,54 @@ if (bkgPdf){
 		inFile->Close();
 
 		return 0;
-	}
+	}*/
+
+    std::string datdir = datfile.substr(0, datfile.find_last_of("/"));
+
+    if (datdir != datfile) {
+        std::string cmd = "mkdir -p " + datdir;
+        int ret = system(cmd.c_str());
+        if (ret != 0) {
+            std::cerr << "[error] could not create directory: " << datdir
+                      << std::endl;
+            return 1;
+        }
+    }
+
+    FILE *dfile = fopen(datfile.c_str(), "w");
+    if (!dfile) {
+        std::cerr << "[error] cannot open datfile for writing: " << datfile
+                  << std::endl;
+        inFile->Close();
+        return 1;
+    }
+
+  cout << "[RESULT] Recommended options" << endl;
+
+  for (int cat = startingCategory; cat < ncats; cat++) {
+      cout << "Cat " << cat << endl;
+      fprintf(dfile, "cat=%d\n", (cat + catOffset));
+      for (map<string, int>::iterator it =
+                choices_vec[cat - startingCategory].begin();
+            it != choices_vec[cat - startingCategory].end(); it++) {
+          cout << "\t" << it->first << " - " << it->second << endl;
+          fprintf(dfile, "truth=%s:%d:%s%d\n", it->first.c_str(), it->second,
+                  namingMap[it->first].c_str(), it->second);
+      }
+      for (map<string, std::vector<int>>::iterator it =
+                choices_envelope_vec[cat - startingCategory].begin();
+            it != choices_envelope_vec[cat - startingCategory].end(); it++) {
+          std::vector<int> ords = it->second;
+          for (std::vector<int>::iterator ordit = ords.begin();
+                ordit != ords.end(); ordit++) {
+              fprintf(dfile, "paul=%s:%d:%s%d\n", it->first.c_str(), *ordit,
+                      namingMap[it->first].c_str(), *ordit);
+          }
+      }
+      fprintf(dfile, "\n");
+  }
+  fclose(dfile);
+  inFile->Close();
+
+  return 0;
+}
