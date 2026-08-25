@@ -158,6 +158,7 @@ for name, h in hists.items():
     #if name == 'data':
     #  continue
     h.Scale(1.0 / binWidth)
+    h.Scale(1.0 / binWidth)
     #bw = h.GetXaxis().GetBinWidth(1)
     #bc = h.GetBinContent(1)
     #print("simple pdf int post: ", h.Integral("width"))
@@ -309,11 +310,14 @@ leg.SetTextSize(0.025)
 #if doSignal: leg.AddEntry(hists['spdf'],"#scale[1.5]{S model}","fl")
 #leg.AddEntry(0,"","")
 for bname in bpdfs: 
-  if "dytbern" in bname: fname = "#bf{DY Theory core with exp(Bernstein)}"
-  elif "dytcheb" in bname: fname = "#bf{DY Theory core with exp(Chebychev)}"
+  if "dytbern" in bname: fname = "#bf{DY Theory core with Bernstein}"
+  elif "dytcheb" in bname: fname = "#bf{DY Theory core with Chebychev}"
   elif "dytpow" in bname: fname = "#bf{DY Theory core with exp(Powerlaw)}"
-  elif "dytlau" in bname: fname = "#bf{DY Theory core with exp(Laurent)}"
+  elif "dytlau" in bname: fname = "#bf{DY Theory core with Laurent}"
   elif "bwzexp" in bname: fname = "#bf{bwz x exp}"
+  elif "bwzgam" in bname: fname = "#bf{bwzgamma}"
+  elif "2exp" in bname: fname = "#bf{weighted sum of 3 and 2 order exp}"
+  elif "2pow" in bname: fname = "#bf{weighted sum of 3 and 2 order pow}"
   elif "bern" in bname: fname = "#bf{Bernstein polynomial}"
   elif "exp" in bname: fname = "#bf{Sum of exponentials}"
   elif "pow" in bname: fname = "#bf{Sum of power law functions}"
