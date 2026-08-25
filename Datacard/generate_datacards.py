@@ -113,7 +113,7 @@ def main() -> None:
     rm_glob("yields_tutorial/*.pkl")
 
     # --- VBF ---
-    vbf_cats = ["VBFcat1", "VBFcat2", "VBFcat3", "VBFcat4", "VBFcat5"]
+    vbf_cats = ["VBFcat1", "VBFcat2", "VBFcat3", "VBFcat4", "VBFcat5", "VBFcat6", "VBFcat7"]
     vbf_path = f"{root_io}/tuples/split_tuples/VBF/ws_VBF"
 
     print("---------------------------- VBF -----------------------------------")

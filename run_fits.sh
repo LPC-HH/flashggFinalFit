@@ -85,11 +85,11 @@ if ! $SKIP_BLOCK; then
 
   echo "[INFO] Packaging signal fits"
   python3 RunPackager.py \
-    --cats VBFcat1,VBFcat2,VBFcat3,VBFcat4,VBFcat5,ggHcat1,ggHcat2,ggHcat3,ggHcat4,ggHcat5 \
+    --cats VBFcat1,VBFcat2,VBFcat3,VBFcat4,VBFcat5,VBFcat6,VBFcat7,ggHcat1,ggHcat2,ggHcat3,ggHcat4,ggHcat5 \
     --exts tutorial_combined --batch local --massPoints 125 --year combined --mergeYears
 
   echo "[INFO] Running signal plotter"
-  for cat in VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5 ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5; do
+  for cat in VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5 VBFcat6 VBFcat7 ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5; do
     python3 RunPlotter.py --procs all --years combined --cats $cat --ext packaged --doFWHM 
   done
 
@@ -118,7 +118,7 @@ for cat in ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5; do
   
 done
 
-for cat in VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5; do
+for cat in VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5 VBFcat6 VBFcat7; do
   python3 makeMultipdfPlot.py \
     --inputWSFile ../Background/outdir_tutorial/CMS-HGG_multipdf_${cat}.root \
     --cat ${cat} \

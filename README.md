@@ -73,3 +73,11 @@ To run the fits most easily, use the run_fits.sh script
 bash run_fits.sh -r #removes previous fitting results and plots
 bash run_fits.sh
 ```
+
+## Updating categories
+To change the number of categories, you need to change the following
+1. run_fits.sh: lines 88, 92, 109, 121
+2. Datacard/generate_datacards.py: lines 92, 116
+3. Combine/run_workspace.sh: lines 7, 8
+4. Combine/run_asym.sh: line 6
+5. Combine/run_sig.sh: line 6
