@@ -237,8 +237,6 @@ if opt.inputSignalWSFile is not None:
       hists['spdf'].Reset()
     hists['spdf'] += p
 
-  hists['spdf'].Scale(1.0 / binWidth)
-
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plotting
 ROOT.gStyle.SetOptStat(0)
@@ -361,6 +359,10 @@ if doSignal:
   
   bkg_lowBin = hists["%s"%bpdf_bf_name].FindBin(fwhm_low)
   bkg_highBin = hists["%s"%bpdf_bf_name].FindBin(fwhm_high)
+  sig_SRlowBin = hists['spdf'].FindBin(121)
+  sig_SRhighBin = hists['spdf'].FindBin(129)
+  bkg_SRlowBin = hists["%s"%bpdf_bf_name].FindBin(121)
+  bkg_SRhighBin = hists["%s"%bpdf_bf_name].FindBin(129)
 
   #for ibin in range(bkg_lowBin, bkg_highBin+1):
     #bcenter = hists["%s_nBins"%bpdf_bf_name].GetBinCenter(ibin)
@@ -376,22 +378,26 @@ if doSignal:
 
   bkg_man_integral *= bw / binWidth'''
 
-  signal_yield_total = hists['spdf'].Integral("width")
-  signal_yieldFWHM = hists['spdf'].Integral(lowBin, highBin, "width")
+  signal_yield_total = hists['spdf'].Integral("width") / binWidth
+  signal_yieldFWHM = hists['spdf'].Integral(lowBin, highBin, "width") / binWidth
+  signal_yield_SR = hists['spdf'].Integral(sig_SRlowBin, sig_SRhighBin, "width") / binWidth
   bkg_yield_total = hists["%s"%bpdf_bf_name].Integral("width") / binWidth
   bkg_yieldFWHM = hists["%s"%bpdf_bf_name].Integral(bkg_lowBin, bkg_highBin, "width") / binWidth
+  bkg_yield_SR = hists["%s"%bpdf_bf_name].Integral(bkg_SRlowBin, bkg_SRhighBin, "width") / binWidth
+
   #print(f"Signal Integral: {sigIntTot} | Signal Integral FWHM: {sigIntFWHM}")
   #print("BKG MAN INT: ", bkg_man_integral)
-  print(f'-------------- Signal Yield Total: {signal_yield_total} | Signal Yield FHWM: {signal_yieldFWHM} --------------\n-------------- Bkg Yield Total: {bkg_yield_total} | Bkg Yield FWHM: {bkg_yieldFWHM} --------------')
+  print(f'-------------- Signal Yield Total: {signal_yield_total} | Signal Yield FHWM: {signal_yieldFWHM} | Signal Yield SR: {signal_yield_SR} --------------\n-------------- Bkg Yield Total: {bkg_yield_total} | Bkg Yield FWHM: {bkg_yieldFWHM} | Bkg Yield SR: {bkg_yield_SR} --------------')
+  print('-------------- S/sqrt(B) SR: %.2f --------------'%(signal_yield_SR/math.sqrt(bkg_yield_SR)))
   hists['spdf'].Draw("Hist same cf")
 yieldText = ROOT.TLatex()
 yieldText.SetTextFont(42)
 yieldText.SetTextAlign(11)
 yieldText.SetNDC()
 yieldText.SetTextSize(0.03)
-yieldText.DrawLatex(0.17,0.65,"S = %.2f | S_FWHM = %.2f "%(signal_yield_total, signal_yieldFWHM))
-yieldText.DrawLatex(0.17,0.6,"B = %.2f | B_FWHM = %.2f "%(bkg_yield_total, bkg_yieldFWHM))
-yields = {'Category': Translate(cat,translateCats),'FWHM': (fwhm_high-fwhm_low), 'Total Sig': signal_yield_total, 'Total Bkg': bkg_yield_total, 'Sig FWHM': signal_yieldFWHM, 'Bkg FWHM': bkg_yieldFWHM}
+yieldText.DrawLatex(0.17,0.65,"S = %.2f | S_FWHM = %.2f | S_SR = %.2f"%(signal_yield_total, signal_yieldFWHM, signal_yield_SR))
+yieldText.DrawLatex(0.17,0.6,"B = %.2f | B_FWHM = %.2f | B_SR = %.2f"%(bkg_yield_total, bkg_yieldFWHM, bkg_yield_SR))
+yields = {'Category': Translate(cat,translateCats),'FWHM': round((fwhm_high-fwhm_low), 2), 'Total Sig': round(signal_yield_total, 2), 'Total Bkg': round(bkg_yield_total, 2), 'Sig FWHM': round(signal_yieldFWHM, 2), 'Bkg FWHM': round(bkg_yieldFWHM, 2), 'Sig SR': round(signal_yield_SR, 2), 'Bkg SR': round(bkg_yield_SR, 2), 'S/sqrt(B) in SR': round(signal_yield_SR/math.sqrt(bkg_yield_SR), 2)}
 colourOptions=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 bnames = list(bpdfs.keys())
 for bidx, bname in enumerate(bnames):
@@ -421,7 +427,7 @@ lat0.SetNDC()
 lat0.SetTextSize(0.06)
 #lat0.DrawLatex(0.12,0.92,"#bf{CMS} #it{Preliminary}")
 #lat0.DrawLatex(0.12,0.92,"#bf{CMS}")
-lat0.DrawLatex(0.18,0.80,"#scale[0.75]{%s}"%Translate(cat,translateCats))
+lat0.DrawLatex(0.18,0.80,"#scale[0.75]{%s S/sqrt(B) in SR: %.2f}"%(Translate(cat,translateCats), signal_yield_SR/math.sqrt(bkg_yield_SR)))
 
 lat1 = ROOT.TLatex()
 lat1.SetTextFont(42)
