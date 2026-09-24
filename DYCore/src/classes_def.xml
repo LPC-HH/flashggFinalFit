@@ -2,4 +2,6 @@
   <class name="RooDYCore"/>
   <class name="RooDYSplineCore"/>
   <class name="RooDYBernCore"/>
+  <class name="RooDYTexpcore"/>
+  <class name="RooDYTPowcore"/>
 </lcgdict>

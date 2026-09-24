@@ -27,7 +27,7 @@ Double_t RooDYSplineCore::evaluate() const {
 
     // �����þ���·��������Ҫ��
     const char* filename =
-      "/eos/user/z/zhguo/flashgg/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/DYshapes/fewz_spline.root";
+      "/home/zguo/HmmCombine/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/DYshapes/fewz_spline.root";
 
     const char* splinename = "fewz_spline_smear";
 
