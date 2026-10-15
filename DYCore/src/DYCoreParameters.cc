@@ -64,3 +64,23 @@ DYPowParameters loadDYPowParameters(const std::string& cat)
     }
     return {values[0], values[2], values[4], values[6], values[8]};
 }
+
+DYChebModParameters loadDYCoreModParameters(const std::string& cat)
+{
+    std::ifstream file = openCsv("fit_results_DYCoreMod.csv");
+    std::vector<double> values;
+    if (!file.is_open() || !nextRow(file, cat, values) || values.size() < 5) {
+        throw std::runtime_error("Could not find valid DYCoreMod parameters for category " + cat);
+    }
+    return {values[0], values[2], values[4]};
+}
+
+DYChebModParameters loadDYSplineCoreModParameters(const std::string& cat)
+{
+    std::ifstream file = openCsv("fit_results_DYSplineCoreMod.csv");
+    std::vector<double> values;
+    if (!file.is_open() || !nextRow(file, cat, values) || values.size() < 5) {
+        throw std::runtime_error("Could not find valid DYSplineCoreMod parameters for category " + cat);
+    }
+    return {values[0], values[2], values[4]};
+}

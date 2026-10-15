@@ -17,7 +17,11 @@ categories = [
     "ggHcat4",
     "ggHcat5",
     "ggHcat6",
-    # "VBFcat1",
+    "VBFcat2",
+    "VBFcat3",
+    "VBFcat4",
+    "VBFcat5",
+    "VBFcat6",
 ]
 
 

@@ -80,7 +80,14 @@ class PdfModelBuilder {
     RooAbsPdf* getDYPowLaurent(string prefix, int order, string cat = "");
     RooAbsPdf* getDYFewzChebychev(std::string prefix, int order);
     RooAbsPdf* getDYFewzPowerLaw(std::string prefix, int order);
-    RooAbsPdf* getDYFewzLaurent(string prefix, int order);
+    RooAbsPdf* getDYFewzLaurent(string prefix, int order);    // MC corrected cores: fixed DYCore / DYSplineCore shape multiplied by a
+    // per-category Chebyshev correction read from DYshapes/*.csv
+    RooAbsPdf* getDYModChebychev(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYModPowerLaw(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYModLaurent(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYFewzModChebychev(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYFewzModPowerLaw(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYFewzModLaurent(std::string prefix, int order, std::string cat = "");
     RooAbsPdf* getBWZExpPoly(std::string prefix, int order);
     RooAbsPdf* getKeysPdf(string prefix);
     RooAbsPdf* getPdfFromFile(string &prefix);

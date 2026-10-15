@@ -15,7 +15,7 @@ bash copy.sh
 bash run_workspace.sh
 cd Checks/Bias_nominal/
 
-for cat in ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5 ggHcat6; do
+for cat in ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5 ggHcat6 VBFcat2 VBFcat3 VBFcat4 VBFcat5 VBFcat6; do
   cp ../../Datacard_tutorial_${cat}_mu_inclusive.root ./Datacard_tutorial_${cat}_mu_inclusive_toy.root
 done
 
@@ -28,6 +28,6 @@ bash copy.sh
 bash run_workspace.sh
 cd Checks/Bias_nominal/
 
-for cat in ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5 ggHcat6; do
+for cat in ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5 ggHcat6 VBFcat2 VBFcat3 VBFcat4 VBFcat5 VBFcat6; do
   cp ../../Datacard_tutorial_${cat}_mu_inclusive.root ./Datacard_tutorial_${cat}_mu_inclusive.root
 done
