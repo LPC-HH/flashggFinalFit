@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <algorithm>
 
 #include "boost/program_options.hpp"
 #include "boost/lexical_cast.hpp"
@@ -20,6 +21,7 @@
 #include "RooArgSet.h"
 #include "RooFitResult.h"
 #include "RooMinimizer.h"
+#include "RooRandom.h"
 #include "RooMsgService.h"
 #include "RooDataHist.h"
 #include "RooExtendPdf.h"
@@ -60,8 +62,8 @@ int mgg_high =150;
 int nBinsForMass;
 int nBinsPerGeV;
 double SB1_low = 110;
-double SB1_high = 123;
-double SB2_low = 127;
+double SB1_high = 120;
+double SB2_low = 130;
 double SB2_high = 150;
 
 double TEST1_low = 118;
@@ -69,12 +71,35 @@ double TEST1_high = 120;
 double TEST2_low = 130;
 double TEST2_high = 133;
 
+// ---------------------------------------------------------------------------
+// Lower bound on the order of the background function finally selected by the
+// F-test.  The F-test stops at the first order whose improvement over the
+// previous one is not significant; this can leave the model at a very low
+// (and very rigid) order which often fails the bias test.  This setting forces
+// the selected order to be at least this value.
+//
+//   minFitOrder = 2 (default) -> selected order is never below 2
+//   minFitOrder = 1 or 0      -> original behaviour (no lower bound)
+//
+// It can also be overridden from the command line with --minOrder <n>.
+// ---------------------------------------------------------------------------
+int minFitOrder = 3;
+
 RooRealVar *intLumi_ = new RooRealVar("IntLumi","hacked int lumi", 1000.);
 
 TRandom3 *RandomGen = new TRandom3();
 
+unsigned int getFitRetrySeed(const char *pdfName, int retry)
+{
+  unsigned int seed = 24681357u;
+  for (const char *character = pdfName; *character != '\0'; ++character) {
+    seed = seed * 33u + static_cast<unsigned int>(*character);
+  }
+  return seed + 1009u * static_cast<unsigned int>(retry);
+}
 
-RooAbsPdf* getPdf(PdfModelBuilder &pdfsModel, string type, int order, const char* ext=""){
+
+RooAbsPdf* getPdf(PdfModelBuilder &pdfsModel, string type, int order, const char* ext="", const string& cat=""){
   
   if (type=="Bernstein") return pdfsModel.getBernstein(Form("%s_bern%d",ext,order),order); 
   else if (type=="Chebychev") return pdfsModel.getChebychev(Form("%s_cheb%d",ext,order),order); 
@@ -93,6 +118,15 @@ RooAbsPdf* getPdf(PdfModelBuilder &pdfsModel, string type, int order, const char
   else if (type=="DYTheoryBern_pow") return pdfsModel.getDYBernPowerLaw(Form("%s_dytBpow%d",ext,order),order); 
   else if (type=="DYTheoryBern_lau") return pdfsModel.getDYBernLaurent(Form("%s_dytBlau%d",ext,order),order); 
   else if (type=="DYTheoryBern_bern") return pdfsModel.getDYBernBernstein(Form("%s_dytBbern%d",ext,order),order); 
+  else if (type=="DYTheoryExp_cheb") return pdfsModel.getDYExpChebychev(Form("%s_dytEcheb%d",ext,order),order,cat); 
+  else if (type=="DYTheoryExp_pow") return pdfsModel.getDYExpPowerLaw(Form("%s_dytEpow%d",ext,order),order,cat); 
+  else if (type=="DYTheoryExp_lau") return pdfsModel.getDYExpLaurent(Form("%s_dytElau%d",ext,order),order,cat); 
+  else if (type=="DYTheoryPow_cheb") return pdfsModel.getDYPowChebychev(Form("%s_dytPcheb%d",ext,order),order,cat); 
+  else if (type=="DYTheoryPow_pow") return pdfsModel.getDYPowPowerLaw(Form("%s_dytPpow%d",ext,order),order,cat); 
+  else if (type=="DYTheoryPow_lau") return pdfsModel.getDYPowLaurent(Form("%s_dytPlau%d",ext,order),order,cat); 
+  else if (type=="DYTheoryFewz_cheb") return pdfsModel.getDYFewzChebychev(Form("%s_dytFcheb%d",ext,order),order); 
+  else if (type=="DYTheoryFewz_pow") return pdfsModel.getDYFewzPowerLaw(Form("%s_dytFpow%d",ext,order),order); 
+  else if (type=="DYTheoryFewz_lau") return pdfsModel.getDYFewzLaurent(Form("%s_dytFlau%d",ext,order),order); 
   else if (type=="BWZ_exp") return pdfsModel.getBWZExpPoly(Form("%s_bwzexp%d",ext,order),order);
   else if (type=="BWZ_gamma") {
     return pdfsModel.getBWZGamma(Form("%s_bwzgam2", ext));
@@ -113,6 +147,8 @@ void runFit(RooAbsPdf *pdf, RooAbsData *data, double *NLL, int *stat_t, int MaxT
 
 	int ntries=0;
   	RooArgSet *params_test = pdf->getParameters((const RooArgSet*)(0));
+  RooArgSet initialParams;
+  params_test->snapshot(initialParams);
 	//params_test->Print("v");
 	int stat=1;
 	double minnll=10e8;
@@ -134,7 +170,11 @@ void runFit(RooAbsPdf *pdf, RooAbsData *data, double *NLL, int *stat_t, int MaxT
               << pdf->createIntegral(*m, RooFit::Range("SB1,SB2"), RooFit::NormSet(*m))->getVal()
               << std::endl;
 	  RooFitResult *fitTest = pdf->fitTo(*data,RooFit::Save(1)
-    ,RooFit::Range("SB1,SB2"),RooFit::Minimizer("Minuit2","minimize"),RooFit::SumW2Error(kTRUE)); //FIXME
+    ,RooFit::Range("SB1,SB2"),RooFit::Strategy(ntries == 0 ? 1 : 2)
+    ,RooFit::Minimizer("Minuit2","migrad"),RooFit::Offset(kTRUE)
+    ,RooFit::RecoverFromUndefinedRegions(10.)
+    ,RooFit::Minos(kFALSE),RooFit::Hesse(kTRUE)
+    ,RooFit::SumW2Error(kTRUE),RooFit::PrintLevel(-1));
           stat = fitTest->status();
 	  minnll = fitTest->minNll();
     std::cout << "[FitResult DEBUG] " << std::endl;
@@ -144,7 +184,20 @@ void runFit(RooAbsPdf *pdf, RooAbsData *data, double *NLL, int *stat_t, int MaxT
           << " "
           << fitTest->edm()
           << std::endl;
-	  if (stat!=0) params_test->assignValueOnly(fitTest->randomizePars());
+	  if (stat!=0) {
+    RooRandom::randomGenerator()->SetSeed(getFitRetrySeed(pdf->GetName(), ntries));
+    const RooArgList &randomizedParams = fitTest->randomizePars();
+      bool finite = true;
+      TIterator *iterator = randomizedParams.createIterator();
+      RooAbsArg *argument = nullptr;
+      while ((argument = (RooAbsArg*)iterator->Next())) {
+        RooRealVar *variable = dynamic_cast<RooRealVar*>(argument);
+        if (variable && !TMath::Finite(variable->getVal())) finite = false;
+      }
+      delete iterator;
+      if (finite) params_test->assignValueOnly(randomizedParams);
+      else params_test->assignValueOnly(initialParams);
+	  }
 	  ntries++; 
 	}
 	*stat_t = stat;
@@ -307,7 +360,7 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   delete iter;
 
   // -----------------------------
-  // 1. »­Í¼£¨ÓÃÓÚÈ¡ hist ??curve??  // -----------------------------
+  // 1. ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ hist ??curve??  // -----------------------------
   RooPlot *plot_chi2 = mass->frame();
 
   data->plotOn(plot_chi2,
@@ -317,7 +370,7 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   mpdf->plotOn(plot_chi2,
                Name("pdf"),
                RooFit::Range("full"),
-               RooFit::NormRange("SB1,SB2"));  //  ¹Ø¼ü£ºSB¹éÒ»??
+               RooFit::NormRange("SB1,SB2"));  //  ï¿½Ø¼ï¿½ï¿½ï¿½SBï¿½ï¿½Ò»??
   // -----------------------------
   // 2. ??histogram ??curve
   // -----------------------------
@@ -330,7 +383,7 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   }
 
   // -----------------------------
-  // 3. ÊÖ¶¯¼ÆËã chi2£¨¶àÇøÓò??  // -----------------------------
+  // 3. ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ chi2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½??  // -----------------------------
   double chi2_fit = 0;
   double chi2_test = 0;
   double chi2_sbtest = 0;
@@ -467,8 +520,7 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   double prob_sbtest = (ndof_sbtest > 0) ? TMath::Prob(chi2_sbtest, ndof_sbtest) : -1;
 
   // -----------------------------
-  // 6. Êä³ö
-  // -----------------------------
+  // 6. ï¿½ï¿½ï¿?  // -----------------------------
   std::cout << "\n========== GOF SUMMARY ==========" << std::endl;
 
   std::cout << "[FIT SB] "
@@ -906,6 +958,7 @@ int main(int argc, char* argv[]){
     ("year", po::value<string>(&year_)->default_value("2016"),       "Dataset year")
     ("catOffset", po::value<int>(&catOffset)->default_value(0),       "Category numbering scheme offset")
     ("nBinsPerGeV", po::value<int>(&nBinsPerGeV)->default_value(4),              "Number of bins per GeV")
+    ("minOrder", po::value<int>(&minFitOrder)->default_value(minFitOrder),      "Minimum allowed order of the selected background function (set in the cpp file; 1 or 0 disables the lower bound)")
     ("verbose,v",                                                                               "Run with more output")
     ("fitForToy", "Use alternative background functions for toy generation")
   ;
@@ -1005,29 +1058,42 @@ int main(int argc, char* argv[]){
       functionClasses.push_back("DYTheory_lau");
 
 //      functionClasses.push_back("DYTheoryBern_bern");
-      functionClasses.push_back("DYTheoryBern_cheb");
-      functionClasses.push_back("DYTheoryBern_pow");
-      functionClasses.push_back("DYTheoryBern_lau");
+//      functionClasses.push_back("DYTheoryBern_cheb");
+//      functionClasses.push_back("DYTheoryBern_pow");
+//      functionClasses.push_back("DYTheoryBern_lau");
+      
+//      functionClasses.push_back("DYTheoryPow_cheb");
+      functionClasses.push_back("DYTheoryPow_pow");
+      functionClasses.push_back("DYTheoryPow_lau");
+      
+//      functionClasses.push_back("DYTheoryFewz_cheb");
+//      functionClasses.push_back("DYTheoryFewz_pow");
+//      functionClasses.push_back("DYTheoryFewz_lau");
+      
+//      functionClasses.push_back("DYTheoryExp_cheb");
+      functionClasses.push_back("DYTheoryExp_pow");
+      functionClasses.push_back("DYTheoryExp_lau");
 
-  }
+  } 
   else{
 
       // ===========================
       // toy generation models
       // ===========================
 
-      functionClasses.push_back("Bernstein");
+//      functionClasses.push_back("Bernstein");
       functionClasses.push_back("BWZ_gamma");
       functionClasses.push_back("2Exp");
       functionClasses.push_back("2PowerLaw");
       functionClasses.push_back("ModBreitWigner");
       functionClasses.push_back("BWZ_exp");
+//      functionClasses.push_back("Exponential");
 
   }
 
 	map<string,string> namingMap;
   namingMap.insert(pair<string,string>("Bernstein","bern"));
-////	namingMap.insert(pair<string,string>("Exponential","exp"));
+	namingMap.insert(pair<string,string>("Exponential","exp"));
 ////	namingMap.insert(pair<string,string>("PowerLaw","pow"));
 	namingMap.insert(pair<string,string>("DYTheory_bern","dytbern"));
 	namingMap.insert(pair<string,string>("DYTheory_cheb","dytcheb"));
@@ -1037,6 +1103,15 @@ int main(int argc, char* argv[]){
 	namingMap.insert(pair<string,string>("DYTheoryBern_cheb","dytBcheb"));
 	namingMap.insert(pair<string,string>("DYTheoryBern_pow","dytBpow"));
 	namingMap.insert(pair<string,string>("DYTheoryBern_lau","dytBlau"));
+  namingMap.insert(pair<string,string>("DYTheoryExp_cheb","dytEcheb"));
+	namingMap.insert(pair<string,string>("DYTheoryExp_pow","dytEpow"));
+	namingMap.insert(pair<string,string>("DYTheoryExp_lau","dytElau"));
+  namingMap.insert(pair<string,string>("DYTheoryPow_cheb","dytPcheb"));
+	namingMap.insert(pair<string,string>("DYTheoryPow_pow","dytPpow"));
+	namingMap.insert(pair<string,string>("DYTheoryPow_lau","dytPlau"));
+  namingMap.insert(pair<string,string>("DYTheoryFewz_cheb","dytFcheb"));
+	namingMap.insert(pair<string,string>("DYTheoryFewz_pow","dytFpow"));
+	namingMap.insert(pair<string,string>("DYTheoryFewz_lau","dytFlau"));
   namingMap.insert(pair<string,string>("ModBreitWigner","mBW"));
   namingMap.insert(pair<string,string>("BWZ_exp","bwzexp"));
   namingMap.insert(pair<string,string>("BWZ_gamma","bwzgam"));
@@ -1167,7 +1242,7 @@ int main(int argc, char* argv[]){
           
     
           RooAbsPdf *bkgPdf = getPdf(pdfsModel, *funcType, fixedOrder, 
-                      Form("env_pdf_%d_%s", (cat+catOffset), ext.c_str()));
+                      Form("env_pdf_%d_%s", (cat+catOffset), ext.c_str()), catname);
     
           
               int fitStatus = 0;
@@ -1278,10 +1353,18 @@ if (saveMultiPdf) {
 			RooAbsPdf *cache_pdf=NULL;
 			std::vector<int> pdforders;
 
+			// Keeps every pdf that was actually built and fitted, keyed by order.
+			// Used to promote the final order up to the configured lower bound.
+			std::map<int,RooAbsPdf*> fittedPdfs;
+
 			int counter =0;
 			//	while (prob<0.05){
-			while (prob<0.05 && order < 7){ //FIXME
-				RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,order,Form("ftest_pdf_%d_%s",(cat+catOffset),ext.c_str()));
+			// The F-test may stop at order 1.  Continue running at least until
+			// order == minFitOrder so that this order has been fitted and can be
+			// used as the final answer.  For minFitOrder <= 1 this is a no-op and
+			// the original behaviour is preserved.
+      while ((prob<0.05 || order <= minFitOrder) && order < 6){ // FIXME: test up to fifth order
+        RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,order,Form("ftest_pdf_%d_%s",(cat+catOffset),ext.c_str()),catname);
 				if (!bkgPdf){
 					// assume this order is not allowed
 					order++;
@@ -1294,7 +1377,9 @@ if (saveMultiPdf) {
         bkgPdf->Print();
 					runFit(bkgPdf,data,&thisNll,&fitStatus,/*max iterations*/3);//bkgPdf->fitTo(*data,Save(true),RooFit::Minimizer("Minuit2","minimize"));
 					if (fitStatus!=0) std::cout << "[WARNING] Warning -- Fit status for " << bkgPdf->GetName() << " at " << fitStatus <<std::endl;
-       
+
+					fittedPdfs[order]=bkgPdf;
+
 					chi2 = 2.*(prevNll-thisNll);
 					if (chi2<0. && order>1) chi2=0.;
 					if (prev_pdf!=NULL){
@@ -1317,6 +1402,29 @@ if (saveMultiPdf) {
 					order++;
 				}
 				counter++;
+			}
+
+			// ------------------------------------------------------------------
+			// Enforce the configurable lower bound on the selected order.
+			// If the F-test stopped below minFitOrder, promote the final function
+			// to order minFitOrder (that pdf has already been built and fitted
+			// during the loop above).  minFitOrder <= 1 leaves everything as it
+			// was before this option existed.
+			// ------------------------------------------------------------------
+			if (minFitOrder > 1 && cache_order < minFitOrder){
+				std::map<int,RooAbsPdf*>::iterator itMin = fittedPdfs.find(minFitOrder);
+				if (itMin != fittedPdfs.end() && itMin->second){
+					std::cout << "[INFO] F-test selected order " << cache_order
+					          << " for " << *funcType
+					          << " -- raising it to the configured lower bound "
+					          << minFitOrder << std::endl;
+					cache_order = minFitOrder;
+					cache_pdf   = itMin->second;
+				} else {
+					std::cout << "[WARNING] Requested lower bound order " << minFitOrder
+					          << " for " << *funcType
+					          << " is not available, keeping order " << cache_order << std::endl;
+				}
 			}
 
 			fprintf(resFile,"%15s & %d & %5.2f & %5.2f \\\\\n",funcType->c_str(),cache_order+1,chi2,prob);
@@ -1391,7 +1499,7 @@ RooAbsPdf *bkgPdf =
            *funcType,
            truthOrder,
            Form("env_pdf_%d_%s",
-           (cat+catOffset),ext.c_str()));
+           (cat+catOffset),ext.c_str()), catname);
 
 if (bkgPdf){
 

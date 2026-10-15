@@ -72,6 +72,15 @@ class PdfModelBuilder {
     RooAbsPdf* getDYBernChebychev(std::string prefix, int order);
     RooAbsPdf* getDYBernPowerLaw(std::string prefix, int order);
     RooAbsPdf* getDYBernLaurent(string prefix, int order);
+    RooAbsPdf* getDYExpChebychev(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYExpPowerLaw(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYExpLaurent(string prefix, int order, string cat = "");
+    RooAbsPdf* getDYPowChebychev(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYPowPowerLaw(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYPowLaurent(string prefix, int order, string cat = "");
+    RooAbsPdf* getDYFewzChebychev(std::string prefix, int order);
+    RooAbsPdf* getDYFewzPowerLaw(std::string prefix, int order);
+    RooAbsPdf* getDYFewzLaurent(string prefix, int order);
     RooAbsPdf* getBWZExpPoly(std::string prefix, int order);
     RooAbsPdf* getKeysPdf(string prefix);
     RooAbsPdf* getPdfFromFile(string &prefix);

@@ -43,7 +43,8 @@ categories=[
     "ggHcat2",
     "ggHcat3",
     "ggHcat4",
-    "ggHcat5"
+    "ggHcat5",
+    "ggHcat6"
 ]
 
 
@@ -153,122 +154,126 @@ def calculate_pulls(files):
     pulls=[]
     filtered_pulls=[]
 
-
     rMin=-20.0
     rMax=20.0
     edgeTolerance=0.001
 
-
     for filename in files:
 
-
+        print("\n================================")
         print("Reading root:",filename)
-
+        print("================================")
 
         tf=r.TFile.Open(filename)
 
         if not tf or tf.IsZombie():
+            print("  ERROR: cannot open file")
             continue
-
 
         tree=tf.Get("limit")
 
         if not tree:
+            print("  ERROR: no limit tree")
+            tf.Close()
             continue
-
-
 
         toys={}
 
-
-
         for i in range(tree.GetEntries()):
-
 
             tree.GetEntry(i)
 
-
             toy=int(tree.iToy)
-
 
             if toy not in toys:
                 toys[toy]={}
-
-
 
             if tree.quantileExpected==-1:
 
                 toys[toy]["bf"]=tree.r
 
-
             elif abs(tree.quantileExpected+0.32)<0.01:
 
                 toys[toy]["lo"]=tree.r
-
 
             elif abs(tree.quantileExpected-0.32)<0.01:
 
                 toys[toy]["hi"]=tree.r
 
 
+        #
+        # diagnostics
+        #
 
+        n_total=len(toys)
+
+        n_bf=0
+        n_lo=0
+        n_hi=0
+        n_complete=0
+        n_bad_unc=0
+        n_boundary=0
+        n_good=0
 
         for toy,data in toys.items():
 
+            if "bf" in data:
+                n_bf += 1
+
+            if "lo" in data:
+                n_lo += 1
+
+            if "hi" in data:
+                n_hi += 1
 
             if not all(
                 x in data for x in ["bf","lo","hi"]
             ):
                 continue
 
-
+            n_complete += 1
 
             unc=0.5*(data["hi"]-data["lo"])
 
-
-
             if unc<=0:
+                n_bad_unc += 1
                 continue
-
-
 
             pull=(data["bf"]-expectSignal)/unc
 
-
-            #
-            # original pull
-            #
             pulls.append(pull)
 
-
-
-            #
-            # boundary check
-            #
             hitBoundary=False
-
 
             if data["bf"]+unc >= rMax-edgeTolerance:
                 hitBoundary=True
 
-
             if data["bf"]-unc <= rMin+edgeTolerance:
                 hitBoundary=True
 
+            if hitBoundary:
 
+                n_boundary += 1
 
-            if not hitBoundary:
+            else:
 
                 filtered_pulls.append(pull)
+                n_good += 1
 
 
+        print("  ROOT entries      :",tree.GetEntries())
+        print("  unique iToy       :",n_total)
+        print("  with bf           :",n_bf)
+        print("  with lo           :",n_lo)
+        print("  with hi           :",n_hi)
+        print("  complete bf/lo/hi :",n_complete)
+        print("  bad uncertainty   :",n_bad_unc)
+        print("  boundary          :",n_boundary)
+        print("  usable pull       :",n_good)
 
         tf.Close()
 
-
-
     return pulls, filtered_pulls
-
 
 
 

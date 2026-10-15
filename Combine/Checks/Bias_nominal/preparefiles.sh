@@ -4,7 +4,7 @@ set -e
 cmsenv
 source ../../../setup.sh
 
-rm -r Datacard_tutorial*.root
+rm -f Datacard_tutorial*.root
 
 echo "===== Create toy background ====="
 cd ../../..
@@ -15,7 +15,7 @@ bash copy.sh
 bash run_workspace.sh
 cd Checks/Bias_nominal/
 
-for cat in ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5; do
+for cat in ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5 ggHcat6; do
   cp ../../Datacard_tutorial_${cat}_mu_inclusive.root ./Datacard_tutorial_${cat}_mu_inclusive_toy.root
 done
 
@@ -28,6 +28,6 @@ bash copy.sh
 bash run_workspace.sh
 cd Checks/Bias_nominal/
 
-for cat in ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5; do
+for cat in ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5 ggHcat6; do
   cp ../../Datacard_tutorial_${cat}_mu_inclusive.root ./Datacard_tutorial_${cat}_mu_inclusive.root
 done

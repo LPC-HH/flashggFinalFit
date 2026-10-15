@@ -16,6 +16,7 @@ categories = [
     "ggHcat3",
     "ggHcat4",
     "ggHcat5",
+    "ggHcat6",
     # "VBFcat1",
 ]
 

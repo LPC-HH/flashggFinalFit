@@ -63,7 +63,7 @@ def calc_pull_metrics(hdata, hfit):
 
     return dw,prod,r
     
-def calc_chi2(hdata, hfit, bname, n):#n:nbins per GeV
+def calc_chi2(hdata, hfit, bname, n):#n: conversion factor from plotted contents to raw counts (1.0 for counts)
 
     chi2 = 0.
     nbin = 0
@@ -79,6 +79,7 @@ def calc_chi2(hdata, hfit, bname, n):#n:nbins per GeV
         if not inSB:
             continue
 
+        # histograms hold raw event counts -> y is the observed number of events
         y = hdata.GetBinContent(ibin)/n
 
         pdf_bin = hfit.FindBin(x)
@@ -203,12 +204,31 @@ for x in test_points:
 print("===========================\n")
 
 
-# Make histograms from bpdfs and scale by norm
-norm = w.var("CMS_hgg_%s_13TeV_bkgshape_norm"%opt.cat).getVal()
+# ---------------------------------------------------------------
+# Normalization convention
+# Everything drawn in this script is expressed as raw event counts
+# in one data-sized bin (opt.nBins bins across the xvar range), so
+# every histogram is directly comparable to the data points.
+#   * a histogram made from a pdf stores (pdf value * bin width of
+#     that histogram), so the factor binWidth/pdfBinWidth converts
+#     it into the expected number of events in one data-sized bin
+#     (= pdf value * binWidth).
+#   * the data histogram is never rescaled: its contents are the
+#     raw event counts and the kPoisson errors are then correct.
+# ---------------------------------------------------------------
+xvar_low, xvar_high = xvar.getMin(), xvar.getMax()
+binWidth    = (xvar_high - xvar_low) / float(opt.nBins)     # width of a data bin
+pdfBinWidth = (xvar_high - xvar_low) / float(opt.pdfNBins)  # width of a drawn pdf bin
+pdfToDataBin = binWidth / pdfBinWidth                       # == opt.pdfNBins/opt.nBins
+print("[INFO] data bin width = %s GeV | pdf bin width = %s GeV"%(binWidth,pdfBinWidth))
+
+# Bkg yield of the best fit pdf as stored in the workspace (used for cross checks)
+bkgshape_norm_ws = w.var("CMS_hgg_%s_13TeV_bkgshape_norm"%opt.cat).getVal()
 
 hists = od()
 
 d = w.data("roohist_data_mass_%s"%opt.cat)
+# Raw event counts per bin - no scaling is ever applied to this histogram
 hists['data'] = xvar.createHistogram("h_data", ROOT.RooFit.Binning(opt.nBins,xvar.getMin(),xvar.getMax()))
 hists['data'].SetBinErrorOption(ROOT.TH1.kPoisson)
 
@@ -226,56 +246,26 @@ print("data_sb_integral:", data_sb_integral)
 print("\n\n\n\n")
 
 for bname, bpdf in list(bpdfs.items()):
-  #print("pdfBins: %s | xMin: %s | xMax: %s"%(opt.pdfNBins,xvar.getMin(),xvar.getMax()))
   hists[bname] = bpdf.createHistogram("h_%s"%bname,xvar,ROOT.RooFit.Binning(opt.pdfNBins,xvar.getMin(),xvar.getMax()))
-  #hists[bname].Scale(norm)
+  # Match the pdf shape to the data in the sidebands: the pdf is unit
+  # normalized, so the total number of expected events is data_sb_integral/pdf_sb_integral
   pdf_sb_integral = bpdf.createIntegral(ROOT.RooArgSet(xvar),ROOT.RooFit.NormSet(xvar),ROOT.RooFit.Range("SB1,SB2")).getVal()
-  scale = data_sb_integral / pdf_sb_integral 
-  #print("\n\n\n\n%s"%bname)
-  #print("data_sb_integral:", data_sb_integral)
-  #print("pdf_sb_integral:", pdf_sb_integral)
-  #print("simple pdf int: ", hists[bname].Integral("width"))
-  #print("simple data int: ", hists['data'].Integral("width"))
-  #print("simple data int (no norm): ", hists['data'].Integral())
-  #print("data bw: ", hists['data'].GetXaxis().GetBinWidth(1))
-  #print("data bc: ", hists['data'].GetBinContent(1))
-  #print("scale:", scale)
-  hists[bname].Scale(scale*(float(opt.pdfNBins)/float(opt.nBins)))
-  #print("simple pdf int post: ", hists[bname].Integral("width"))
-  #print("simple pdf int post (no norm): ", hists[bname].Integral())
-  print("\n\n\n\n")
+  scale = data_sb_integral / pdf_sb_integral
+  # pdf curve (fine binning): expected events in one data-sized bin
+  hists[bname].Scale(scale*pdfToDataBin)
 
   if bname == bpdf_bf_name:
+    # Same envelope binned as the data (used for pulls, chi2 and the ratio pads).
+    # Its bins already have the data width, so only the sideband matching is needed.
     hists["%s_nBins"%bname] = bpdf.createHistogram("h_%s_nBins"%bname,xvar,ROOT.RooFit.Binning(opt.nBins,xvar.getMin(),xvar.getMax()))
     hists["%s_nBins"%bname].Scale(scale)
 
 #Scale pdf histograms to match data
-xvar_range = int(xvar.getBinning().highBound()-xvar.getBinning().lowBound())
-print("XVAR RANGE: ", xvar_range)
-if opt.nBins != xvar_range:
-  for name, h in hists.items(): 
-    #if(name != 'data'):
-    h.Scale(float(xvar_range)/opt.nBins)
-  
-# ----------------------------------
-# Convert to Events / GeV  
-# ----------------------------------
-binWidth = (xvar.getMax() - xvar.getMin()) / float(opt.nBins)
-print("[INFO] binWidth =", binWidth)
-
-for name, h in hists.items():
-    #bw = h.GetXaxis().GetBinWidth(1)
-    #bc = h.GetBinContent(1)
-    #print("simple pdf int pre: ", h.Integral("width"))
-    #print(name + " | bw: " + str(bw) + " | bc: " + str(bc))
-    #if name == 'data':
-    #  continue
-    h.Scale(1.0 / binWidth)
-    h.Scale(1.0 / binWidth)
-    #bw = h.GetXaxis().GetBinWidth(1)
-    #bc = h.GetBinContent(1)
-    #print("simple pdf int post: ", h.Integral("width"))
-    #print(name + " | bwp: " + str(bw) + " | bcp: " + str(bc) + "\n\n")
+# All histograms are now in raw event counts per data-sized bin:
+#   data         -> untouched raw counts
+#   bkg envelope -> expected events, matched to the data sidebands
+#   signal       -> expected events, scaled by its physical yield
+# so no additional bin-width scaling must be applied here.
 
 # Extract data histogram
 
@@ -306,7 +296,7 @@ for bname, bpdf in bpdfs.items():
         hists['data'],
         hfit,
         bname,
-        1.0 / binWidth
+        1.0
     )
 
     metrics[bname] = (
@@ -355,20 +345,31 @@ if opt.inputSignalWSFile is not None:
 
   # Extract norms
   norms = od()
-  spdfs = od()
+  spdfs = od()        # fine binning, for drawing
+  spdfs_nBins = od()  # data binning, for yields and window integrals
+  signal_norm_total = 0.
   for year in years_to_process:
     allNorms = wsig.allFunctions().selectByName("*%s*normThisLumi"%year)
-    for norm in rooiter(allNorms):
+    for normObj in rooiter(allNorms):
       # Set integrated lumi
       wsig.var("IntLumi").setVal(lumiMap[year]*lumiScaleFactor)
-      proc = norm.GetName().split("hggpdfsmrel_")[-1].split("_%s_"%year)[0]
+      proc = normObj.GetName().split("hggpdfsmrel_")[-1].split("_%s_"%year)[0]
       k  =  "%s__%s"%(proc,year)
       _id = "%s_%s_%s_%s"%(proc,year,cat,sqrts__)
       norms[k] = wsig.function("%s_%s_normThisLumi"%(outputWSObjectTitle__,_id))
 
+      # Expected number of signal events for this process in this category
+      yield_norm = norms[k].getVal()
+      signal_norm_total += yield_norm
+
       pdf = wsig.pdf("%s_%s"%(outputWSObjectTitle__,_id))
+      # Drawn curve: the pdf is unit normalized, so scaling by the yield
+      # and by binWidth/pdfBinWidth gives the expected events in one data-sized bin
       spdfs[_id] = pdf.createHistogram("h_pdf_%s"%_id,xvar,ROOT.RooFit.Binning(opt.pdfNBins))
-      spdfs[_id].Scale(norms[k].getVal()*(float(opt.pdfNBins)/float(opt.nBins)))
+      spdfs[_id].Scale(yield_norm*pdfToDataBin)
+      # Data-binned version: contents are already in data-sized bins
+      spdfs_nBins[_id] = pdf.createHistogram("h_pdf_nBins_%s"%_id,xvar,ROOT.RooFit.Binning(opt.nBins))
+      spdfs_nBins[_id].Scale(yield_norm)
 
   # Sum pdf histograms
   for _id, p in list(spdfs.items()):
@@ -377,7 +378,14 @@ if opt.inputSignalWSFile is not None:
       hists['spdf'].Reset()
     hists['spdf'] += p
 
-  hists['spdf'].Scale(1.0 / binWidth)
+  for _id, p in list(spdfs_nBins.items()):
+    if 'spdf_nBins' not in hists:
+      hists['spdf_nBins'] = p.Clone("h_spdf_nBins")
+      hists['spdf_nBins'].Reset()
+    hists['spdf_nBins'] += p
+
+  # No further scaling: the signal histograms are already in event counts
+  print("[INFO] total signal yield from norms = %.4f"%signal_norm_total)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plotting
@@ -464,6 +472,15 @@ for bname in bpdfs:
   elif "dytBcheb" in bname: fname = "#bf{DY Theory Bern core with Chebychev}"
   elif "dytBpow" in bname: fname = "#bf{DY Theory Bern core with exp(Powerlaw)}"
   elif "dytBlau" in bname: fname = "#bf{DY Theory Bern core with Laurent}"
+  elif "dytEcheb" in bname: fname = "#bf{DY Theory Exp core with Chebychev}"
+  elif "dytEpow" in bname: fname = "#bf{DY Theory Exp core with exp(Powerlaw)}"
+  elif "dytElau" in bname: fname = "#bf{DY Theory Exp core with Laurent}"
+  elif "dytPcheb" in bname: fname = "#bf{DY Theory Pow core with Chebychev}"
+  elif "dytPpow" in bname: fname = "#bf{DY Theory Pow core with exp(Powerlaw)}"
+  elif "dytPlau" in bname: fname = "#bf{DY Theory Pow core with Laurent}"
+  elif "dytFcheb" in bname: fname = "#bf{DY Theory Fewz core with Chebychev}"
+  elif "dytFpow" in bname: fname = "#bf{DY Theory Fewz core with exp(Powerlaw)}"
+  elif "dytFlau" in bname: fname = "#bf{DY Theory Fewz core with Laurent}"
   elif "bwzexp" in bname: fname = "#bf{bwz x exp}"
   elif "bwzgam" in bname: fname = "#bf{bwzgamma}"
   elif "2exp" in bname: fname = "#bf{weighted sum of 3 and 2 order exp}"
@@ -508,44 +525,22 @@ if doSignal:
   fwhmText.DrawLatex(0.17,0.25,"FWHM = %1.2f GeV"%(fwhm_high-fwhm_low))
   print(f'-------------- FWHM_low: {fwhm_low} | FWHM_high: {fwhm_high} --------------')
 
-  #signal_yieldFWHM = 0
-  #bkg_yieldFWHM = 0
-  #signal_yield_total = 0
-  #print("%s_nBins"%bpdf_bf_name)
-  #for ibin in range(1,hists['spdf'].GetNbinsX()+1):
-  #for ibin in range(lowBin, highBin+1):
-    #bcenter = hists['spdf'].GetBinCenter(ibin)
-    #sigval, sigerr = hists['spdf'].GetBinContent(ibin), hists['spdf'].GetBinError(ibin)
-    #bkgval = hists["%s_nBins"%bpdf_bf_name].GetBinContent(ibin)
-    #print(f"-------------- SIG val: {sigval} in bin: {ibin} @ Mmumu: {bcenter} --------------")
-    #signal_yield_total += sigval
-    #if ibin in range(lowBin, highBin+1):
-      #signal_yieldFWHM += sigval
-    #bkg_yieldFWHM += bkgval
-  
-  bkg_lowBin = hists["%s"%bpdf_bf_name].FindBin(fwhm_low)
-  bkg_highBin = hists["%s"%bpdf_bf_name].FindBin(fwhm_high)
+  # Yields: every histogram holds raw event counts per data-sized bin, so a plain
+  # Integral() (sum of the bin contents) directly gives the number of events.
+  # The "_nBins" histograms never had SetRangeUser applied, so they integrate
+  # over the full xvar range.
+  hsig = hists['spdf_nBins']
+  hbkg = hists["%s_nBins"%bpdf_bf_name]
 
-  #for ibin in range(bkg_lowBin, bkg_highBin+1):
-    #bcenter = hists["%s_nBins"%bpdf_bf_name].GetBinCenter(ibin)
-    #bkgval = hists["%s_nBins"%bpdf_bf_name].GetBinContent(ibin)
-    #bkg_yieldFWHM += bkgval
-    #print(f"-------------- BKG val: {bkgval} in bin: {ibin} @ Mmumu: {bcenter} --------------")
+  fwhm_lowBin = hbkg.FindBin(fwhm_low)
+  fwhm_highBin = hbkg.FindBin(fwhm_high)
 
-  '''bkg_man_integral = 0
-  bw = hists['%s'%bpdf_bf_name].GetXaxis().GetBinWidth(1)
-  for ibin in range(1, hists['%s'%bpdf_bf_name].GetNbinsX()+1):
-      bcenter = hists['%s'%bpdf_bf_name].GetBinCenter(ibin)
-      bkg_man_integral += hists['%s'%bpdf_bf_name].GetBinContent(ibin)
-
-  bkg_man_integral *= bw / binWidth'''
-
-  signal_yield_total = hists['spdf'].Integral("width")
-  signal_yieldFWHM = hists['spdf'].Integral(lowBin, highBin, "width")
-  bkg_yield_total = hists["%s"%bpdf_bf_name].Integral("width") / binWidth
-  bkg_yieldFWHM = hists["%s"%bpdf_bf_name].Integral(bkg_lowBin, bkg_highBin, "width") / binWidth
-  #print(f"Signal Integral: {sigIntTot} | Signal Integral FWHM: {sigIntFWHM}")
-  #print("BKG MAN INT: ", bkg_man_integral)
+  signal_yield_total = hsig.Integral()
+  signal_yieldFWHM = hsig.Integral(fwhm_lowBin, fwhm_highBin)
+  bkg_yield_total = hbkg.Integral()
+  bkg_yieldFWHM = hbkg.Integral(fwhm_lowBin, fwhm_highBin)
+  print("[CHECK] bkg yield: sideband matched = %.2f | workspace bkgshape norm = %.2f"%(bkg_yield_total,bkgshape_norm_ws))
+  print("[CHECK] signal yield: hist integral = %.4f | sum of norms = %.4f"%(signal_yield_total,signal_norm_total))
   print(f'-------------- Signal Yield Total: {signal_yield_total} | Signal Yield FHWM: {signal_yieldFWHM} --------------\n-------------- Bkg Yield Total: {bkg_yield_total} | Bkg Yield FWHM: {bkg_yieldFWHM} --------------')
   hists['spdf'].Draw("Hist same cf")
 yieldText = ROOT.TLatex()
