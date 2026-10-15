@@ -20,7 +20,19 @@ struct DYPowParameters {
     double a2;
 };
 
+// Per-category third order Chebyshev correction applied on top of
+// the fixed DYCore / DYSplineCore shapes (see RooDYCoreMod and
+// RooDYSplineCoreMod).  These are the parameters fitted on the
+// MC in Background/test/fitDYshapes.cpp.
+struct DYChebModParameters {
+    double c1;
+    double c2;
+    double c3;
+};
+
 DYExpParameters loadDYExpParameters(const std::string& cat);
 DYPowParameters loadDYPowParameters(const std::string& cat);
+DYChebModParameters loadDYCoreModParameters(const std::string& cat);
+DYChebModParameters loadDYSplineCoreModParameters(const std::string& cat);
 
 #endif

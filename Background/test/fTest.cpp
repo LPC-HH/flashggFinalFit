@@ -4,6 +4,7 @@
 #include <string>
 #include <map>
 #include <algorithm>
+#include <cctype>
 
 #include "boost/program_options.hpp"
 #include "boost/lexical_cast.hpp"
@@ -72,18 +73,53 @@ double TEST2_low = 130;
 double TEST2_high = 133;
 
 // ---------------------------------------------------------------------------
-// Lower bound on the order of the background function finally selected by the
-// F-test.  The F-test stops at the first order whose improvement over the
-// previous one is not significant; this can leave the model at a very low
-// (and very rigid) order which often fails the bias test.  This setting forces
-// the selected order to be at least this value.
+// Per-category lower bound on the order of the background function finally
+// selected by the F-test.  The F-test stops at the first order whose
+// improvement over the previous one is not significant, which can leave the
+// model at a very low (and very rigid) order that often fails the bias test.
+// The number below is the minimum order enforced for that category.
 //
-//   minFitOrder = 2 (default) -> selected order is never below 2
-//   minFitOrder = 1 or 0      -> original behaviour (no lower bound)
+//   value >= 2   -> the final order is raised to at least this value
+//   value 0 or 1 -> no lower bound (exactly the behaviour without this feature)
 //
-// It can also be overridden from the command line with --minOrder <n>.
+// A category that is not listed here (e.g. VBFcat*, or cat0/cat1/... when
+// running without flashgg categories) falls back to minOrderDefault.
+// The command line option --minOrder <n> only changes that fallback, so
+// categories listed below keep their dedicated value.
 // ---------------------------------------------------------------------------
-int minFitOrder = 3;
+std::map<std::string,int> minOrderByCat = {
+  {"ggHcat1", 2},
+  {"ggHcat2", 2},
+  {"ggHcat3", 4},
+  {"ggHcat4", 4},
+  {"ggHcat5", 4},
+  {"ggHcat6", 5},
+  {"VBFcat1", 3},
+  {"VBFcat2", 3},
+  {"VBFcat3", 3},
+  {"VBFcat4", 5},
+  {"VBFcat5", 2},
+  {"VBFcat6", 4},
+};
+
+// Fallback used when the category name is not listed in minOrderByCat.
+// 0 (or 1) means "no lower bound".
+int minOrderDefault = 0;
+
+// Returns the minimum order requested for a category, or minOrderDefault when
+// the category is not listed.
+int getMinOrderForCategory(const std::string& catname){
+  std::map<std::string,int>::const_iterator it = minOrderByCat.find(catname);
+  if (it != minOrderByCat.end()){
+    std::cout << "[INFO] Requested minimum order for category " << catname
+              << " = " << it->second << std::endl;
+    return it->second;
+  }
+  std::cout << "[INFO] Category " << catname
+            << " is not listed in minOrderByCat, falling back to minimum order "
+            << minOrderDefault << std::endl;
+  return minOrderDefault;
+}
 
 RooRealVar *intLumi_ = new RooRealVar("IntLumi","hacked int lumi", 1000.);
 
@@ -127,6 +163,12 @@ RooAbsPdf* getPdf(PdfModelBuilder &pdfsModel, string type, int order, const char
   else if (type=="DYTheoryFewz_cheb") return pdfsModel.getDYFewzChebychev(Form("%s_dytFcheb%d",ext,order),order); 
   else if (type=="DYTheoryFewz_pow") return pdfsModel.getDYFewzPowerLaw(Form("%s_dytFpow%d",ext,order),order); 
   else if (type=="DYTheoryFewz_lau") return pdfsModel.getDYFewzLaurent(Form("%s_dytFlau%d",ext,order),order); 
+  else if (type=="DYTheoryMod_cheb") return pdfsModel.getDYModChebychev(Form("%s_dytMcheb%d",ext,order),order,cat); 
+  else if (type=="DYTheoryMod_pow") return pdfsModel.getDYModPowerLaw(Form("%s_dytMpow%d",ext,order),order,cat); 
+  else if (type=="DYTheoryMod_lau") return pdfsModel.getDYModLaurent(Form("%s_dytMlau%d",ext,order),order,cat); 
+  else if (type=="DYTheoryFewzMod_cheb") return pdfsModel.getDYFewzModChebychev(Form("%s_dytFMcheb%d",ext,order),order,cat); 
+  else if (type=="DYTheoryFewzMod_pow") return pdfsModel.getDYFewzModPowerLaw(Form("%s_dytFMpow%d",ext,order),order,cat); 
+  else if (type=="DYTheoryFewzMod_lau") return pdfsModel.getDYFewzModLaurent(Form("%s_dytFMlau%d",ext,order),order,cat); 
   else if (type=="BWZ_exp") return pdfsModel.getBWZExpPoly(Form("%s_bwzexp%d",ext,order),order);
   else if (type=="BWZ_gamma") {
     return pdfsModel.getBWZGamma(Form("%s_bwzgam2", ext));
@@ -520,7 +562,7 @@ double getGoodnessOfFit(RooRealVar *mass, RooAbsPdf *mpdf, RooAbsData *data, std
   double prob_sbtest = (ndof_sbtest > 0) ? TMath::Prob(chi2_sbtest, ndof_sbtest) : -1;
 
   // -----------------------------
-  // 6. ï¿½ï¿½ï¿?  // -----------------------------
+  // 6. ï¿½ï¿½ï¿½?  // -----------------------------
   std::cout << "\n========== GOF SUMMARY ==========" << std::endl;
 
   std::cout << "[FIT SB] "
@@ -958,7 +1000,7 @@ int main(int argc, char* argv[]){
     ("year", po::value<string>(&year_)->default_value("2016"),       "Dataset year")
     ("catOffset", po::value<int>(&catOffset)->default_value(0),       "Category numbering scheme offset")
     ("nBinsPerGeV", po::value<int>(&nBinsPerGeV)->default_value(4),              "Number of bins per GeV")
-    ("minOrder", po::value<int>(&minFitOrder)->default_value(minFitOrder),      "Minimum allowed order of the selected background function (set in the cpp file; 1 or 0 disables the lower bound)")
+    ("minOrder", po::value<int>(&minOrderDefault)->default_value(minOrderDefault),      "Fallback minimum order for categories not listed in minOrderByCat (0 or 1 = no lower bound)")
     ("verbose,v",                                                                               "Run with more output")
     ("fitForToy", "Use alternative background functions for toy generation")
   ;
@@ -1044,35 +1086,42 @@ int main(int argc, char* argv[]){
 		std::cout << "[INFO] got intL and sqrts " << intL << ", " << sqrts << std::endl;
 	}
 
+	// fitForToy : the single toy-generation list (same for ggH and VBF)
 	vector<string> functionClasses;
+	// !fitForToy : the nominal background families.  They are not the same
+	// for ggH and VBF, so two lists are defined and the right one is picked
+	// per category in the loop below (see "VBFcat*" / "ggHcat*" selection).
+	vector<string> functionClassesGGH;
+	vector<string> functionClassesVBF;
 
   if (!fitForToy){
 
-      // ===========================
-      // nominal background models
-      // ===========================
+      // ===========================================================
+      // Nominal background models
+      // ===========================================================
 
-//      functionClasses.push_back("DYTheory_bern");
-      functionClasses.push_back("DYTheory_cheb");
-      functionClasses.push_back("DYTheory_pow");
-      functionClasses.push_back("DYTheory_lau");
+      // ---- ggH : dytPlau, dytEpow, dytElau, dytMlau ----
+      functionClassesGGH.push_back("DYTheoryPow_lau");   // dytPlau
+      functionClassesGGH.push_back("DYTheoryExp_pow");   // dytEpow
+      functionClassesGGH.push_back("DYTheoryExp_lau");   // dytElau
+      functionClassesGGH.push_back("DYTheoryMod_lau");   // dytMlau
 
-//      functionClasses.push_back("DYTheoryBern_bern");
-//      functionClasses.push_back("DYTheoryBern_cheb");
-//      functionClasses.push_back("DYTheoryBern_pow");
-//      functionClasses.push_back("DYTheoryBern_lau");
+      // ---- VBF : dytcheb, dytEpow, dytMlau, bern, 2pow ----
+      functionClassesVBF.push_back("DYTheory_cheb");     // dytcheb
+      functionClassesVBF.push_back("DYTheoryExp_pow");   // dytEpow
+      functionClassesVBF.push_back("DYTheoryMod_lau");   // dytMlau
+      functionClassesVBF.push_back("Bernstein");         // bern
+      functionClassesVBF.push_back("2PowerLaw");         // 2pow
+
+      // Other families that are available but not used by default:
+      //   DYTheory_bern / DYTheory_pow / DYTheory_lau / DYTheoryExp_cheb
+      //   DYTheoryBern_{bern,cheb,pow,lau}
+      //   DYTheoryPow_{cheb,pow,lau}
+      //   DYTheoryFewz_{cheb,pow,lau}
+      //   DYTheoryMod_{cheb,pow}
+      //   DYTheoryFewzMod_{cheb,pow,lau}
+      //   Exponential / PowerLaw (single) / Laurent / Chebychev
       
-//      functionClasses.push_back("DYTheoryPow_cheb");
-      functionClasses.push_back("DYTheoryPow_pow");
-      functionClasses.push_back("DYTheoryPow_lau");
-      
-//      functionClasses.push_back("DYTheoryFewz_cheb");
-//      functionClasses.push_back("DYTheoryFewz_pow");
-//      functionClasses.push_back("DYTheoryFewz_lau");
-      
-//      functionClasses.push_back("DYTheoryExp_cheb");
-      functionClasses.push_back("DYTheoryExp_pow");
-      functionClasses.push_back("DYTheoryExp_lau");
 
   } 
   else{
@@ -1084,10 +1133,11 @@ int main(int argc, char* argv[]){
 //      functionClasses.push_back("Bernstein");
       functionClasses.push_back("BWZ_gamma");
       functionClasses.push_back("2Exp");
-      functionClasses.push_back("2PowerLaw");
+//      functionClasses.push_back("2PowerLaw");
       functionClasses.push_back("ModBreitWigner");
       functionClasses.push_back("BWZ_exp");
-//      functionClasses.push_back("Exponential");
+      functionClasses.push_back("DYTheoryFewz_cheb");
+      functionClasses.push_back("Exponential");
 
   }
 
@@ -1112,6 +1162,12 @@ int main(int argc, char* argv[]){
   namingMap.insert(pair<string,string>("DYTheoryFewz_cheb","dytFcheb"));
 	namingMap.insert(pair<string,string>("DYTheoryFewz_pow","dytFpow"));
 	namingMap.insert(pair<string,string>("DYTheoryFewz_lau","dytFlau"));
+  namingMap.insert(pair<string,string>("DYTheoryMod_cheb","dytMcheb"));
+	namingMap.insert(pair<string,string>("DYTheoryMod_pow","dytMpow"));
+	namingMap.insert(pair<string,string>("DYTheoryMod_lau","dytMlau"));
+  namingMap.insert(pair<string,string>("DYTheoryFewzMod_cheb","dytFMcheb"));
+	namingMap.insert(pair<string,string>("DYTheoryFewzMod_pow","dytFMpow"));
+	namingMap.insert(pair<string,string>("DYTheoryFewzMod_lau","dytFMlau"));
   namingMap.insert(pair<string,string>("ModBreitWigner","mBW"));
   namingMap.insert(pair<string,string>("BWZ_exp","bwzexp"));
   namingMap.insert(pair<string,string>("BWZ_gamma","bwzgam"));
@@ -1164,6 +1220,50 @@ int main(int argc, char* argv[]){
 		} else {
 			catname = Form("cat%d",cat);
 		}
+
+		// ------------------------------------------------------------------
+		// Select the background family set for this category.
+		// A category whose name contains "vbf" (case insensitive, e.g.
+		// VBFcat3) uses the VBF families, every other category uses the ggH
+		// families.  With --fitForToy both use the single toy-generation list.
+		// ------------------------------------------------------------------
+		std::string catNameLower;
+		catNameLower.reserve(catname.size());
+		for (std::size_t ich = 0; ich < catname.size(); ++ich){
+		  catNameLower.push_back(static_cast<char>(
+		      std::tolower(static_cast<unsigned char>(catname[ich]))));
+		}
+
+		const bool isVBFCategory = (catNameLower.find("vbf") != std::string::npos);
+
+		vector<string> functionClassesForCat;
+		if (fitForToy){
+		  functionClassesForCat = functionClasses;
+		} else if (isVBFCategory){
+		  functionClassesForCat = functionClassesVBF;
+		} else {
+		  functionClassesForCat = functionClassesGGH;
+		}
+
+		std::cout << "[INFO] Category " << catname << " treated as "
+		          << (isVBFCategory ? "VBF" : "ggH")
+		          << " -- background families (" << functionClassesForCat.size() << "):";
+		for (std::size_t ifc = 0; ifc < functionClassesForCat.size(); ++ifc){
+		  std::cout << " " << functionClassesForCat[ifc];
+		}
+		std::cout << std::endl;
+
+		// Minimum order requested for this category (0 if not listed -> no bound).
+		// The lower bound is only meant for the nominal background functions
+		// (the !fitForToy list).  When running with --fitForToy the
+		// toy-generation functions must stay completely untouched, so the bound
+		// is disabled (0) for them and the loop below is the plain F-test again.
+		const int catMinOrder = fitForToy ? 0 : getMinOrderForCategory(catname);
+		if (fitForToy){
+		  std::cout << "[INFO] Running toy-generation functions -- per-category minimum"
+		            << " order disabled for category " << catname << std::endl;
+		}
+
 		RooDataSet *dataFull;
 		RooDataSet *dataFull0;
 		if (isData_) {
@@ -1223,8 +1323,8 @@ int main(int argc, char* argv[]){
 		int simplebestFitPdfIndex = 0;
 
 		// Standard F-Test to find the truth functions
-		for (vector<string>::iterator funcType=functionClasses.begin(); 
-				funcType!=functionClasses.end(); funcType++){
+		for (vector<string>::iterator funcType=functionClassesForCat.begin(); 
+				funcType!=functionClassesForCat.end(); funcType++){
         
 /////////////////////////////////////////////////////////////////////////////  
         if (*funcType == "ModBreitWigner" || *funcType == "BWZ_gamma" || *funcType == "2Exp" || *funcType == "2PowerLaw") {
@@ -1354,16 +1454,16 @@ if (saveMultiPdf) {
 			std::vector<int> pdforders;
 
 			// Keeps every pdf that was actually built and fitted, keyed by order.
-			// Used to promote the final order up to the configured lower bound.
+			// Used to promote the final order up to the category lower bound.
 			std::map<int,RooAbsPdf*> fittedPdfs;
 
 			int counter =0;
 			//	while (prob<0.05){
-			// The F-test may stop at order 1.  Continue running at least until
-			// order == minFitOrder so that this order has been fitted and can be
-			// used as the final answer.  For minFitOrder <= 1 this is a no-op and
-			// the original behaviour is preserved.
-      while ((prob<0.05 || order <= minFitOrder) && order < 6){ // FIXME: test up to fifth order
+			// The F-test may stop below catMinOrder.  Keep running at least until
+			// order == catMinOrder so that this order has been fitted and can be
+			// used as the final answer.  For catMinOrder <= 1 this is a no-op and
+			// the behaviour without this feature is preserved.
+      while ((prob<0.05 || order <= catMinOrder) && order < 8){ // FIXME: test up to fifth order
         RooAbsPdf *bkgPdf = getPdf(pdfsModel,*funcType,order,Form("ftest_pdf_%d_%s",(cat+catOffset),ext.c_str()),catname);
 				if (!bkgPdf){
 					// assume this order is not allowed
@@ -1405,27 +1505,32 @@ if (saveMultiPdf) {
 			}
 
 			// ------------------------------------------------------------------
-			// Enforce the configurable lower bound on the selected order.
-			// If the F-test stopped below minFitOrder, promote the final function
-			// to order minFitOrder (that pdf has already been built and fitted
-			// during the loop above).  minFitOrder <= 1 leaves everything as it
-			// was before this option existed.
+			// Enforce the category lower bound on the selected order.
+			// If the F-test stopped below catMinOrder, promote the final function
+			// to order catMinOrder (that pdf has already been built and fitted
+			// during the loop above), keeping cache_order / cache_pdf consistent:
+			// cache_pdf is always the pdf of order cache_order.
+			// catMinOrder <= 1 leaves everything as it was without this feature.
 			// ------------------------------------------------------------------
-			if (minFitOrder > 1 && cache_order < minFitOrder){
-				std::map<int,RooAbsPdf*>::iterator itMin = fittedPdfs.find(minFitOrder);
+			if (catMinOrder > 1 && cache_order < catMinOrder){
+				std::map<int,RooAbsPdf*>::iterator itMin = fittedPdfs.find(catMinOrder);
 				if (itMin != fittedPdfs.end() && itMin->second){
 					std::cout << "[INFO] F-test selected order " << cache_order
-					          << " for " << *funcType
-					          << " -- raising it to the configured lower bound "
-					          << minFitOrder << std::endl;
-					cache_order = minFitOrder;
+					          << " for " << *funcType << " in " << catname
+					          << " -- raising it to the category lower bound "
+					          << catMinOrder << std::endl;
+					cache_order = catMinOrder;
 					cache_pdf   = itMin->second;
 				} else {
-					std::cout << "[WARNING] Requested lower bound order " << minFitOrder
-					          << " for " << *funcType
+					std::cout << "[WARNING] Requested lower bound order " << catMinOrder
+					          << " for " << *funcType << " in " << catname
 					          << " is not available, keeping order " << cache_order << std::endl;
 				}
 			}
+
+			std::cout << "[INFO] " << *funcType << " in " << catname
+			          << " : final order = " << cache_order
+			          << " (category minimum = " << catMinOrder << ")" << std::endl;
 
 			fprintf(resFile,"%15s & %d & %5.2f & %5.2f \\\\\n",funcType->c_str(),cache_order+1,chi2,prob);
 			choices.insert(pair<string,int>(*funcType,cache_order));
