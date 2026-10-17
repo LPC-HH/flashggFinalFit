@@ -40,9 +40,16 @@ AutoDict_*
 # Output dirs in signal and bkg
 Signal/outdir_*
 Background/outdir_*
+Signal/v2p*
+Background/v2p*
 
 # Combine jobs
 Combine/t2w_jobs/*.sh
 
 # Datacard
 Datacard/yields_tutorial/jobs/*.sh
+
+# Compiled binaries
+Background/bin/
+*.so
+*.o

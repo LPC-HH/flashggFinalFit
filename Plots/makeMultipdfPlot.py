@@ -136,13 +136,6 @@ for bname, bpdf in list(bpdfs.items()):
     hists["%s_nBins"%bname] = bpdf.createHistogram("h_%s_nBins"%bname,xvar,ROOT.RooFit.Binning(opt.nBins,xvar.getMin(),xvar.getMax()))
     hists["%s_nBins"%bname].Scale(scale)
 
-#Scale pdf histograms to match data
-xvar_range = int(xvar.getBinning().highBound()-xvar.getBinning().lowBound())
-print("XVAR RANGE: ", xvar_range)
-if opt.nBins != xvar_range:
-  for name, h in hists.items(): 
-    #if(name != 'data'):
-    h.Scale(float(xvar_range)/opt.nBins)
   
 # ----------------------------------
 # Convert to Events / GeV  
@@ -150,22 +143,7 @@ if opt.nBins != xvar_range:
 binWidth = (xvar.getMax() - xvar.getMin()) / float(opt.nBins)
 print("[INFO] binWidth =", binWidth)
 
-for name, h in hists.items():
-    #bw = h.GetXaxis().GetBinWidth(1)
-    #bc = h.GetBinContent(1)
-    #print("simple pdf int pre: ", h.Integral("width"))
-    #print(name + " | bw: " + str(bw) + " | bc: " + str(bc))
-    #if name == 'data':
-    #  continue
-    h.Scale(1.0 / binWidth)
-    #bw = h.GetXaxis().GetBinWidth(1)
-    #bc = h.GetBinContent(1)
-    #print("simple pdf int post: ", h.Integral("width"))
-    #print(name + " | bwp: " + str(bw) + " | bcp: " + str(bc) + "\n\n")
-
 # Extract data histogram
-
-
 
 if opt.doZeroes:
   for ibin in range(1,hists['data'].GetNbinsX()+1):
@@ -494,4 +472,4 @@ with open(opt.outCSV, mode='a', newline='') as f:
 
   if not csv_exists:
     writer.writeheader()
-  writer.writerow(yields)
+ 

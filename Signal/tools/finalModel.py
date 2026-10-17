@@ -395,9 +395,9 @@ class FinalModel:
       formula += ")"
 
     # mean -> mean * (1 + Nuisance param#)
-    if self.addHmmShapeParams:
-      formula += "*(1+@%g)" % dependents.getSize()
-      dependents.add(self.hmmPeakParam)
+    # if self.addHmmShapeParams:
+      # formula += "*(1+@%g)" % dependents.getSize()
+      # dependents.add(self.hmmPeakParam)
 
     self.Functions[meanName] = ROOT.RooFormulaVar(meanName,meanName,formula,dependents)
 

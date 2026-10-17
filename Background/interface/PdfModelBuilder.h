@@ -68,10 +68,33 @@ class PdfModelBuilder {
     RooAbsPdf* getDYChebychev(std::string prefix, int order);
     RooAbsPdf* getDYPowerLaw(std::string prefix, int order);
     RooAbsPdf* getDYLaurent(string prefix, int order);
+    RooAbsPdf* getDYBernBernstein(std::string prefix, int order);
+    RooAbsPdf* getDYBernChebychev(std::string prefix, int order);
+    RooAbsPdf* getDYBernPowerLaw(std::string prefix, int order);
+    RooAbsPdf* getDYBernLaurent(string prefix, int order);
+    RooAbsPdf* getDYExpChebychev(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYExpPowerLaw(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYExpLaurent(string prefix, int order, string cat = "");
+    RooAbsPdf* getDYPowChebychev(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYPowPowerLaw(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYPowLaurent(string prefix, int order, string cat = "");
+    RooAbsPdf* getDYFewzChebychev(std::string prefix, int order);
+    RooAbsPdf* getDYFewzPowerLaw(std::string prefix, int order);
+    RooAbsPdf* getDYFewzLaurent(string prefix, int order);    // MC corrected cores: fixed DYCore / DYSplineCore shape multiplied by a
+    // per-category Chebyshev correction read from DYshapes/*.csv
+    RooAbsPdf* getDYModChebychev(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYModPowerLaw(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYModLaurent(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYFewzModChebychev(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYFewzModPowerLaw(std::string prefix, int order, std::string cat = "");
+    RooAbsPdf* getDYFewzModLaurent(std::string prefix, int order, std::string cat = "");
     RooAbsPdf* getBWZExpPoly(std::string prefix, int order);
     RooAbsPdf* getKeysPdf(string prefix);
     RooAbsPdf* getPdfFromFile(string &prefix);
     RooAbsPdf* getModBreitWigner(string prefix);
+    RooAbsPdf* getBWZGamma(string prefix);
+    RooAbsPdf* get2Exp(string prefix);
+    RooAbsPdf* get2PowerLaw(string prefix);
 
   private:
    

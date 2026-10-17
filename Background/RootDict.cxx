@@ -35,12 +35,12 @@
 #include "TDataMember.h"
 
 // Header files passed as explicit arguments
-#include "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/PdfModelBuilder.h"
-#include "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/ProfileMultiplePdfs.h"
-#include "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooExponentialSum.h"
-#include "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooPowerLaw.h"
-#include "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooPowerLawSum.h"
-#include "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/WSTFileWrapper.h"
+#include "/uscms_data/d3/mbarrial/fits_zliang/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/PdfModelBuilder.h"
+#include "/uscms_data/d3/mbarrial/fits_zliang/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/ProfileMultiplePdfs.h"
+#include "/uscms_data/d3/mbarrial/fits_zliang/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooExponentialSum.h"
+#include "/uscms_data/d3/mbarrial/fits_zliang/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooPowerLaw.h"
+#include "/uscms_data/d3/mbarrial/fits_zliang/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooPowerLawSum.h"
+#include "/uscms_data/d3/mbarrial/fits_zliang/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/WSTFileWrapper.h"
 
 // Header files passed via #pragma extra_include
 
@@ -435,18 +435,18 @@ namespace ROOT {
 namespace {
   void TriggerDictionaryInitialization_RootDict_Impl() {
     static const char* headers[] = {
-"/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/PdfModelBuilder.h",
-"/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/ProfileMultiplePdfs.h",
-"/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooExponentialSum.h",
-"/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooPowerLaw.h",
-"/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooPowerLawSum.h",
-"/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/WSTFileWrapper.h",
+"interface/PdfModelBuilder.h",
+"interface/ProfileMultiplePdfs.h",
+"interface/RooExponentialSum.h",
+"interface/RooPowerLaw.h",
+"interface/RooPowerLawSum.h",
+"interface/WSTFileWrapper.h",
 nullptr
     };
     static const char* includePaths[] = {
 "/cvmfs/cms.cern.ch/el9_amd64_gcc12/lcg/root/6.30.07-8b1a11e1ef0e074fdfd44e162b27e71c//include",
 "/cvmfs/cms.cern.ch/el9_amd64_gcc12/lcg/root/6.30.07-8b1a11e1ef0e074fdfd44e162b27e71c/include/",
-"/uscms_data/d3/esledge/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/",
+"/uscms_data/d3/mbarrial/fits_zliang/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/",
 nullptr
     };
     static const char* fwdDeclCode = R"DICTFWDDCLS(
@@ -455,12 +455,12 @@ nullptr
 #pragma clang diagnostic ignored "-Wignored-attributes"
 #pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
 extern int __Cling_AutoLoading_Map;
-class __attribute__((annotate("$clingAutoload$/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/PdfModelBuilder.h")))  PdfModelBuilder;
-class __attribute__((annotate("$clingAutoload$/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/ProfileMultiplePdfs.h")))  ProfileMultiplePdfs;
-class __attribute__((annotate("$clingAutoload$/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooExponentialSum.h")))  RooExponentialSum;
-class __attribute__((annotate("$clingAutoload$/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooPowerLaw.h")))  RooPowerLaw;
-class __attribute__((annotate("$clingAutoload$/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooPowerLawSum.h")))  RooPowerLawSum;
-class __attribute__((annotate("$clingAutoload$/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/WSTFileWrapper.h")))  WSTFileWrapper;
+class __attribute__((annotate("$clingAutoload$interface/PdfModelBuilder.h")))  PdfModelBuilder;
+class __attribute__((annotate("$clingAutoload$interface/ProfileMultiplePdfs.h")))  ProfileMultiplePdfs;
+class __attribute__((annotate("$clingAutoload$interface/RooExponentialSum.h")))  RooExponentialSum;
+class __attribute__((annotate("$clingAutoload$interface/RooPowerLaw.h")))  RooPowerLaw;
+class __attribute__((annotate("$clingAutoload$interface/RooPowerLawSum.h")))  RooPowerLawSum;
+class __attribute__((annotate("$clingAutoload$interface/WSTFileWrapper.h")))  WSTFileWrapper;
 )DICTFWDDCLS";
     static const char* payloadCode = R"DICTPAYLOAD(
 #line 1 "RootDict dictionary payload"
@@ -468,12 +468,12 @@ class __attribute__((annotate("$clingAutoload$/uscms/home/esledge/nobackup/fits-
 
 #define _BACKWARD_BACKWARD_WARNING_H
 // Inline headers
-#include "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/PdfModelBuilder.h"
-#include "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/ProfileMultiplePdfs.h"
-#include "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooExponentialSum.h"
-#include "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooPowerLaw.h"
-#include "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/RooPowerLawSum.h"
-#include "/uscms/home/esledge/nobackup/fits-hmm/CMSSW_14_1_0_pre4/src/flashggFinalFit/Background/interface/WSTFileWrapper.h"
+#include "interface/PdfModelBuilder.h"
+#include "interface/ProfileMultiplePdfs.h"
+#include "interface/RooExponentialSum.h"
+#include "interface/RooPowerLaw.h"
+#include "interface/RooPowerLawSum.h"
+#include "interface/WSTFileWrapper.h"
 
 #undef  _BACKWARD_BACKWARD_WARNING_H
 )DICTPAYLOAD";
