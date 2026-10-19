@@ -3,37 +3,31 @@
 LOGFILE="run_Signifiance_results_$(date +%Y%m%d_%H%M%S).log"
 CSVFILE="run_Signifiance_results_$(date +%Y%m%d_%H%M%S).csv"
 
-# Load categories
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
-mapfile -t GGH_CATS < <(python3 "$REPO_ROOT/category_config.py" ggH)
-mapfile -t VBF_CATS < <(python3 "$REPO_ROOT/category_config.py" VBF)
-
 categories=(
     ggH
-    "${GGH_CATS[@]}"
+    ggHcat1
+    ggHcat2
+    ggHcat3
+    ggHcat4
+    ggHcat5
+    ggHcat6
     VBF
-    "${VBF_CATS[@]}"
+    VBFcat1
+    VBFcat2
+    VBFcat3
+    VBFcat4
+    VBFcat5
     All
 )
 
-
 #categories=(
-    #ggH
-    #ggHcat1
-    #ggHcat2
-    #ggHcat3
-    #ggHcat4
-    #ggHcat5
-    #ggHcat6
-    #VBF
-    #VBFcat1
-    #VBFcat2
-    #VBFcat3
-    #VBFcat4
-    #VBFcat5
-    #VBFcat6
-    #All
+#    ggH
+#    ggHcat1
+#    ggHcat2
+#    ggHcat3
+#    ggHcat4
+#    ggHcat5
+#    ggHcat6
 #)
 
 echo "Category,Significance" > "$CSVFILE"

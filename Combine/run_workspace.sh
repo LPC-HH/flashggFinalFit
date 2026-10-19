@@ -3,16 +3,10 @@ set -euo pipefail
 
 LOGFILE="${LOGFILE:-text2workspace.log}"
 
-#categories=(
-  #ggH ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5 ggHcat6
-  #VBF VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5 VBFcat6 All
-#)
-
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-mapfile -t categories < <(
-    python3 "$REPO_ROOT/category_config.py" workspace
+categories=(
+  ggH ggHcat1 ggHcat2 ggHcat3 ggHcat4 ggHcat5 ggHcat6
+  VBF VBFcat1 VBFcat2 VBFcat3 VBFcat4 VBFcat5 All
 )
-
 
 : > "$LOGFILE"
 

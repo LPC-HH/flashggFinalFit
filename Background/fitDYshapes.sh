@@ -19,6 +19,14 @@
 #   ./fitDYshapes.sh --cats ggHcat1,ggHcat2
 #   ./fitDYshapes.sh --cats VBFcat1 --no-plots
 #   ./fitDYshapes.sh --cats ggHcat1 --tries 3
+#   ./fitDYshapes.sh --vbf-maxratio 2      # stricter VBF outlier cut
+#   ./fitDYshapes.sh --no-vbf-clean        # keep every VBF bin
+#
+# VBF low-statistics protection: by default every VBF bin whose
+# content exceeds 3 x the content of the leftmost bin is replaced by
+# a linear interpolation of its neighbours (see fitDYshapes.cpp).
+# Use VBF_MAXRATIO=<r> in the environment or --vbf-maxratio /
+# --no-vbf-clean on the command line to change this.
 #
 # The executable is built with:   cd Background && make
 # ============================================================
@@ -40,6 +48,13 @@ eval `scramv1 runtime -sh`
 # ROOT_IO + PYTHONPATH (also re-does the scram runtime)
 source "$FFDIR/setup.sh"
 
+# --- VBF low-statistics treatment --------------------------------------
+# Outlier threshold forwarded to fitDYshapes (default: 3 x the content
+# of the leftmost bin).  Command line options are parsed later, so
+# --vbf-maxratio / --no-vbf-clean given by the user win over this
+# default.
+VBF_MAXRATIO="${VBF_MAXRATIO:-2}"
+
 # --- run ---------------------------------------------------------------
 if [ ! -x "$HERE/bin/fitDYshapes" ]; then
     echo "[ERROR] $HERE/bin/fitDYshapes not found"
@@ -50,7 +65,7 @@ fi
 cd "$HERE"
 
 echo "[INFO] ROOT_IO = $ROOT_IO"
-echo "[INFO] running ./bin/fitDYshapes $*"
+echo "[INFO] running ./bin/fitDYshapes --vbf-maxratio $VBF_MAXRATIO $*"
 echo
 
-exec ./bin/fitDYshapes "$@"
+exec ./bin/fitDYshapes --vbf-maxratio "$VBF_MAXRATIO" "$@"

@@ -34,6 +34,14 @@
 //   binning     160 bins
 //   input       weighted MC, branches CMS_hgg_mass / weight
 //
+// VBF categories have very low MC statistics, so isolated bins
+// can fluctuate far above the smooth falling spectrum.  For VBF
+// categories only, the content of the leftmost bin is taken as
+// reference and every bin above 3 x that value is replaced by a
+// linear interpolation of its neighbouring bins before fitting
+// (see cleanVBFSpectrum).  The threshold can be changed with
+// --vbf-maxratio and the treatment disabled with --no-vbf-clean.
+//
 // Usage (run from flashggFinalFit/Background):
 //
 //   ./bin/fitDYshapes [--ggH <file>] [--vbf <file>]
@@ -80,6 +88,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -110,6 +119,12 @@ static int gMaxFitTries = 1;
 // linear y axis for the validation plots (default).  A logarithmic
 // axis can be switched on with --logy.
 static bool gLogY = false;
+
+// VBF outlier treatment: every VBF bin whose content exceeds
+// gVBFOutlierRatio times the content of the leftmost bin is
+// replaced by an interpolation of its neighbours.  A value <= 0
+// disables the treatment (--no-vbf-clean).
+static double gVBFOutlierRatio = 3.0;
 
 // ============================================================
 // Fit results
@@ -270,6 +285,172 @@ static TH1D *buildHistogram(TFile *fin, const std::string &treeName,
     }
 
     return h;
+}
+
+// ============================================================
+// VBF spectrum cleaning
+//
+// The VBF categories have very low MC statistics: individual bins
+// can fluctuate far above the smooth falling spectrum and then
+// dominate (and bias) the fit.  The strategy, applied to VBF
+// categories only, is:
+//
+//   * take the content of the leftmost bin of the fit range as
+//     the reference value,
+//   * a bin whose content exceeds ratio * reference (default
+//     ratio = 3) is treated as an outlier,
+//   * an outlier is replaced by a linear interpolation between
+//     the closest non-outlier bins on its left and right.  A
+//     RooDataHist cannot easily drop individual bins, so the bin
+//     is kept in the fit but with a value consistent with its
+//     neighbours.
+//
+// The bin errors are interpolated in the same way, which avoids
+// giving the replaced bins an artificially small error.
+// ============================================================
+
+struct VBFCleanInfo {
+    int referenceBin = -1;
+    double referenceValue = 0.0;
+    int nReplaced = 0;
+};
+
+static bool isVBFCategory(const std::string &cat) {
+    return cat.compare(0, 3, "VBF") == 0;
+}
+
+static VBFCleanInfo cleanVBFSpectrum(TH1D *h, double ratio) {
+    VBFCleanInfo info;
+
+    if (!h || ratio <= 0.0)
+        return info;
+
+    const int nb = h->GetNbinsX();
+    if (nb < 3)
+        return info;
+
+    // ---- reference value: the leftmost bin of the fit range ----
+    int refBin = 1;
+    if (!TMath::Finite(h->GetBinContent(refBin)) ||
+        h->GetBinContent(refBin) <= 0.0) {
+
+        refBin = -1;
+        for (int i = 1; i <= nb; ++i) {
+            const double v = h->GetBinContent(i);
+            if (TMath::Finite(v) && v > 0.0) {
+                refBin = i;
+                break;
+            }
+        }
+
+        if (refBin < 0) {
+            std::cout << "  [VBF clean] no positive bin, nothing to do"
+                      << std::endl;
+            return info;
+        }
+
+        std::cout << "  [VBF clean] leftmost bin is not positive, using bin "
+                  << refBin << " as reference" << std::endl;
+    }
+
+    const double ref = h->GetBinContent(refBin);
+    const double threshold = ratio * ref;
+
+    info.referenceBin = refBin;
+    info.referenceValue = ref;
+
+    // ---- flag the outliers (1-based bin indices) ----
+    std::vector<char> flagged(nb + 2, 0);
+    int nFlagged = 0;
+
+    for (int i = 1; i <= nb; ++i) {
+        const double v = h->GetBinContent(i);
+        if (TMath::Finite(v) && v > threshold) {
+            flagged[i] = 1;
+            ++nFlagged;
+        }
+    }
+
+    std::cout << "  [VBF clean] reference = bin " << refBin << " ("
+              << h->GetXaxis()->GetBinCenter(refBin) << " GeV) = " << ref
+              << " , threshold = " << ratio << " x " << ref << " = "
+              << threshold << " , flagged bins = " << nFlagged << std::endl;
+
+    if (nFlagged == 0)
+        return info;
+
+    // snapshot the original contents/errors, so that replacing one
+    // bin does not influence the interpolation of the next one
+    std::vector<double> val(nb + 2), err(nb + 2);
+    for (int i = 1; i <= nb; ++i) {
+        val[i] = h->GetBinContent(i);
+        err[i] = h->GetBinError(i);
+    }
+
+    const TAxis *ax = h->GetXaxis();
+
+    for (int i = 1; i <= nb; ++i) {
+
+        if (!flagged[i])
+            continue;
+
+        // closest non-flagged bins on either side
+        int left = i - 1;
+        while (left >= 1 && flagged[left])
+            --left;
+
+        int right = i + 1;
+        while (right <= nb && flagged[right])
+            ++right;
+
+        double newVal = 0.0;
+        double newErr = 0.0;
+
+        if (left >= 1 && right <= nb) {
+            const double xl = ax->GetBinCenter(left);
+            const double xm = ax->GetBinCenter(i);
+            const double xr = ax->GetBinCenter(right);
+            const double w = (xr > xl) ? (xm - xl) / (xr - xl) : 0.5;
+            newVal = (1.0 - w) * val[left] + w * val[right];
+            newErr = (1.0 - w) * err[left] + w * err[right];
+        } else if (left >= 1) {
+            newVal = val[left];
+            newErr = err[left];
+        } else if (right <= nb) {
+            newVal = val[right];
+            newErr = err[right];
+        } else {
+            continue;
+        }
+
+        if (!TMath::Finite(newVal) || newVal <= 0.0) {
+            newVal = (left >= 1 && right <= nb)
+                         ? std::min(val[left], val[right])
+                         : (left >= 1 ? val[left] : val[right]);
+        }
+
+        // a non-positive interpolation would create a negative
+        // expectation: leave the bin untouched in that case
+        if (!TMath::Finite(newVal) || newVal <= 0.0)
+            continue;
+
+        if (!TMath::Finite(newErr) || newErr <= 0.0)
+            newErr = std::sqrt(newVal);
+
+        h->SetBinContent(i, newVal);
+        h->SetBinError(i, newErr);
+
+        ++info.nReplaced;
+
+        std::cout << "  [VBF clean] bin " << i << " ("
+                  << ax->GetBinCenter(i) << " GeV) : " << val[i] << " -> "
+                  << newVal << "  (interpolated)" << std::endl;
+    }
+
+    std::cout << "  [VBF clean] replaced " << info.nReplaced << " of "
+              << nFlagged << " flagged bin(s) for the fit" << std::endl;
+
+    return info;
 }
 
 // ============================================================
@@ -779,6 +960,13 @@ static void processCategory(TFile *fin, const std::string &treeName,
         return;
     }
 
+    // VBF only: replace isolated high bins so that they do not
+    // bias the fit (the histogram is still the one entering the
+    // RooDataHist, hence the fit and the validation plots see
+    // the interpolated values)
+    if (isVBFCategory(cat) && gVBFOutlierRatio > 0.0)
+        cleanVBFSpectrum(h, gVBFOutlierRatio);
+
     CategoryArtifacts art;
     art.cat = cat;
     art.mass = new RooRealVar(Form("CMS_hmm_mass_%s", cat.c_str()),
@@ -922,6 +1110,11 @@ static void printUsage(const char *exe) {
         << "  --no-plots       skip the validation plots\n"
         << "  --logy           logarithmic y axis for the validation plots\n"
         << "                   (default: linear)\n"
+        << "  --vbf-maxratio <r>\n"
+        << "                   VBF only: bins above r x (leftmost bin) are\n"
+        << "                   replaced by an interpolation of their\n"
+        << "                   neighbours before the fit (default: 3)\n"
+        << "  --no-vbf-clean   disable the VBF outlier treatment\n"
         << "  -h, --help       this message\n"
         << "\n"
         << "ROOT_IO is the variable exported by flashggFinalFit/setup.sh.\n"
@@ -978,6 +1171,12 @@ int main(int argc, char *argv[]) {
                 gMaxFitTries = 1;
         } else if (arg == "--no-plots") {
             doPlots = false;
+        } else if (arg == "--vbf-maxratio" && i + 1 < argc) {
+            gVBFOutlierRatio = std::atof(argv[++i]);
+            if (gVBFOutlierRatio < 0.0)
+                gVBFOutlierRatio = 0.0;
+        } else if (arg == "--no-vbf-clean") {
+            gVBFOutlierRatio = 0.0;
         } else if (arg == "--logy") {
             gLogY = true;
         } else if (arg == "--liny") {
@@ -1028,6 +1227,12 @@ int main(int argc, char *argv[]) {
               << std::endl;
     std::cout << " Fit range  : " << xmin << " - " << xmax << " GeV , " << nBins
               << " bins" << std::endl;
+    std::cout << " VBF clean  : "
+              << (gVBFOutlierRatio > 0.0
+                      ? Form("bins > %g x leftmost replaced by interpolation",
+                             gVBFOutlierRatio)
+                      : std::string("disabled"))
+              << std::endl;
     std::cout << "===================================================="
               << std::endl;
 

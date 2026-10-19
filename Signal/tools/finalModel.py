@@ -117,7 +117,7 @@ class FinalModel:
     ## in the ggH categories
     self.addHmmShapeParams = (
         self.proc.startswith("GG2H")
-        and re.match(r"^ggHcat[1-5]$", self.cat)
+        and re.match(r"^ggHcat[1-6]$", self.cat)
     )
 
     self.hmmPeakParam = None

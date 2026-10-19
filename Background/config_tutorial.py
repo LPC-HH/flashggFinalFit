@@ -5,8 +5,8 @@ backgroundScriptCfg = {
   
   # Setup
   # 'inputWS':'PATH_TO_INPUTS/workspaces/data/allData_2022preEE.root', # location of 'allData.root' file
-  #'inputWS':os.getenv('ROOT_IO') + '/tuples/split_tuples/before2sigsources/ggH/ws/allData_combined.root', # location of 'allData.root' file
-  'inputWS':'../inputs/ws/allData_combined.root', # location of 'allData.root' file
+  'inputWS':os.getenv('ROOT_IO') + '/tuples/split_tuples/ggH/ws/allData_combined.root', # location of 'allData.root' file
+  #'inputWS':'../inputs/ws/allData_combined.root', # location of 'allData.root' file
 #  'inputWS':'/uscms_data/d3/mbarrial/higgsAnalysis/CMSSW_14_0_14/src/HToMuMu/root_io//tuples/split_tuples/ggH/ws/allData_combined.root', # location of 'allData.root' file
 
   'cats':'auto', # auto: automatically inferred from input ws
