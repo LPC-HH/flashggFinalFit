@@ -175,6 +175,10 @@ if opt.doSystematics:
       leave()
   writeBreak(fdata)
   for syst in signal_shape_systematics:
+    current_cats = list(data['cat'].unique())
+    if 'cats' in syst:
+      if not any(cat in current_cats for cat in syst['cats']):
+        continue
     if not writeSystematic(fdata,data,syst,opt):
       print(" --> [ERROR] in writing systematic %s (signal shape). Leaving"%syst['name'])
       leave()
