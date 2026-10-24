@@ -21,6 +21,7 @@ QUEUE=""
 YEAR="2016"
 CATOFFSET=0
 NBINSPERGEV=4
+FITFORTOY=0
 
 usage(){
 	echo "The script runs background scripts:"
@@ -52,7 +53,7 @@ echo "--queue) queue to submit jobs to (specific to batch))"
 
 
 # options may be followed by one colon to indicate they have a required argument
-if ! options=$(getopt -u -o hi:p:f: -l help,inputFile:,procs:,flashggCats:,ext:,catOffset:,nBinsPerGeV:,fTestOnly,pseudoDataOnly,bkgPlotsOnly,pseudoDataDat:,sigFile:,seed:,intLumi:,year:,unblind,isData,batch:,queue: -- "$@")
+if ! options=$(getopt -u -o hi:p:f: -l help,inputFile:,procs:,flashggCats:,ext:,catOffset:,nBinsPerGeV:,fTestOnly,pseudoDataOnly,bkgPlotsOnly,pseudoDataDat:,sigFile:,seed:,intLumi:,year:,unblind,isData,batch:,queue:,fitForToy -- "$@")
 then
 # something went wrong, getopt will put out an error message for us
 exit 1
@@ -81,6 +82,7 @@ case $1 in
 --unblind) UNBLIND=1;;
 --batch) BATCH=$2; shift;;
 --queue) QUEUE=$2; shift;;
+--fitForToy) FITFORTOY=1;;
 
 (--) shift; break;;
 (-*) usage; echo "$0: error - unrecognized option $1" 1>&2; usage >> /dev/stderr; exit 1;;
@@ -162,8 +164,27 @@ if [ $ISDATA == 1 ]; then
 OPT=" --isData 1"
 fi
 
-echo " ./bin/fTest -i $FILE --saveMultiPdf $OUTDIR/CMS-HGG_multipdf_$EXT_$CATS.root  -D $OUTDIR/bkgfTest$DATAEXT -f $CATS $OPT --year $YEAR --catOffset $CATOFFSET --nBinsPerGeV $NBINSPERGEV"
-./bin/fTest -i $FILE --saveMultiPdf $OUTDIR/CMS-HGG_multipdf_$EXT_$CATS.root  -D $OUTDIR/bkgfTest$DATAEXT -f $CATS $OPT --year $YEAR --catOffset $CATOFFSET --nBinsPerGeV $NBINSPERGEV
+# Select nominal or alternative background functions
+TOYOPT=""
+
+if [ "$FITFORTOY" -eq 1 ]; then
+    TOYOPT="--fitForToy"
+fi
+
+echo "[INFO] FITFORTOY = $FITFORTOY"
+
+echo " ./bin/fTest -i $FILE --saveMultiPdf $OUTDIR/CMS-HGG_multipdf_${CATS}.root -D $OUTDIR/bkgfTest$DATAEXT -f $CATS $OPT --year $YEAR --catOffset $CATOFFSET --nBinsPerGeV $NBINSPERGEV $TOYOPT"
+
+./bin/fTest \
+    -i "$FILE" \
+    --saveMultiPdf "$OUTDIR/CMS-HGG_multipdf_${CATS}.root" \
+    -D "$OUTDIR/bkgfTest$DATAEXT" \
+    -f "$CATS" \
+    $OPT \
+    --year "$YEAR" \
+    --catOffset "$CATOFFSET" \
+    --nBinsPerGeV "$NBINSPERGEV" \
+    $TOYOPT
 
 OPT=""
 fi
