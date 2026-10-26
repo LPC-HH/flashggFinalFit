@@ -6,22 +6,34 @@ VERSION="${1:?ERROR: Please provide a version name. Usage: bash save_fits.sh <ve
 
 echo "Organizing outputs into ${VERSION}..."
 
+# Move only if the source exists
+move_if_exists() {
+    local source="$1"
+    local destination="$2"
+
+    if [[ -e "$source" ]]; then
+        mkdir -p "$destination"
+        mv -v "$source" "$destination/"
+    else
+        echo "Skipping: $source (does not exist)"
+    fi
+}
+
 # Signal
-mkdir -p "Signal/${VERSION}"
-mv -v Signal/outdir_packaged "Signal/${VERSION}/"
-mv -v Signal/outdir_tutorial_combined "Signal/${VERSION}/"
+move_if_exists "Signal/outdir_packaged" "Signal/${VERSION}"
+move_if_exists "Signal/outdir_tutorial_combined" "Signal/${VERSION}"
 
 # Background
-mkdir -p "Background/${VERSION}"
-mv -v Background/outdir_tutorial "Background/${VERSION}/"
+move_if_exists "Background/outdir_tutorial" "Background/${VERSION}"
 
 # Plots
-mkdir -p "Plots/${VERSION}"
-mv -v Plots/plots_toys "Plots/${VERSION}/"
+move_if_exists "Plots/plots_toys" "Plots/${VERSION}"
+move_if_exists "Plots/plots_tutorial" "Plots/${VERSION}"
 
 # Datacards
-mkdir -p "Datacard/${VERSION}"
-mv -v Datacard/Datacard_tutorial* "Datacard/${VERSION}/"
+for file in Datacard/Datacard_tutorial*; do
+    move_if_exists "$file" "Datacard/${VERSION}"
+done
 
 echo "Done."
 echo "Outputs moved to ${VERSION}"
