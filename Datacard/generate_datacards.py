@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Iterable, List
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from category_config import get_categories
 
 
 def run(cmd: List[str]) -> None:
@@ -24,39 +30,63 @@ def rm_glob(pattern: str) -> None:
 
 
 def run_yields(ws_path: str, cats: str) -> None:
-    run([
-        "python3", "RunYields.py",
-        "--inputWSDirMap", f"combined={ws_path}",
-        "--cats", cats,
-        "--procs", "auto",
-        "--ext", "tutorial",
-        "--mergeYears",
-        "--skipCOWCorr",
-        "--batch", "local",
-        "--queue", "espresso",
-    ])
+    run(
+        [
+            "python3",
+            "RunYields.py",
+            "--inputWSDirMap",
+            f"combined={ws_path}",
+            "--cats",
+            cats,
+            "--procs",
+            "auto",
+            "--ext",
+            "tutorial",
+            "--mergeYears",
+            "--skipCOWCorr",
+            "--batch",
+            "local",
+            "--queue",
+            "espresso",
+        ]
+    )
 
 
-def make_datacard() -> None:
-    run([
-        "python3", "makeDatacard.py",
-        "--ext", "tutorial",
-        "--years", "combined",
+def make_datacard(skip_systematics: bool = False) -> None:
+    cmd = [
+        "python3",
+        "makeDatacard.py",
+        "--ext",
+        "tutorial",
+        "--years",
+        "combined",
         "--prune",
         "--doTrueYield",
         "--skipCOWCorr",
-        "--doMCStatUncertainty",
         "--saveDataFrame",
-        "--output", "Datacard_tutorial",
-    ])
+        "--output",
+        "Datacard_tutorial",
+    ]
+
+    if not skip_systematics:
+        cmd.extend(
+            [
+                "--doMCStatUncertainty",
+                "--doSystematic",
+            ]
+        )
+
+    run(cmd)
 
 
-def run_datacard(cat: str, channel: str, ws_path: str) -> None:
+def run_datacard(
+    cat: str, channel: str, ws_path: str, skip_systematics: bool = False
+) -> None:
     print(f"---------------------------- {channel}: {cat} ----------------------------")
     print(ws_path)
 
     run_yields(ws_path=ws_path, cats=cat)
-    make_datacard()
+    make_datacard(skip_systematics=skip_systematics)
 
     shutil.copyfile("Datacard_tutorial.txt", f"Datacard_tutorial_{cat}.txt")
     shutil.copyfile("Datacard_tutorial.pkl", f"Datacard_tutorial_{cat}.pkl")
@@ -65,16 +95,20 @@ def run_datacard(cat: str, channel: str, ws_path: str) -> None:
     rm_glob("yields_tutorial/*.pkl")
 
 
-def run_combined_datacard(cats: Iterable[str], channel: str, ws_path: str) -> None:
+def run_combined_datacard(
+    cats: Iterable[str], channel: str, ws_path: str, skip_systematics: bool = False
+) -> None:
     cats_list = list(cats)
     cats_arg = ",".join(cats_list)  # matches: IFS=, ; echo "${CATS[*]}"
 
-    print(f"---------------------------- {channel}: Combined ----------------------------")
+    print(
+        f"---------------------------- {channel}: Combined ----------------------------"
+    )
     print(f"========== Cats: {cats_arg} =============")
     print(ws_path)
 
     run_yields(ws_path=ws_path, cats=cats_arg)
-    make_datacard()
+    make_datacard(skip_systematics=skip_systematics)
 
     shutil.copyfile("Datacard_tutorial.txt", f"Datacard_tutorial_{channel}.txt")
     shutil.copyfile("Datacard_tutorial.pkl", f"Datacard_tutorial_{channel}.pkl")
@@ -88,14 +122,36 @@ def main() -> None:
 
     ensure_dir(Path("yields_tutorial"))
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--nosys",
+        action="store_true",
+        help="Disable systematic and MC statistical uncertainties",
+    )
+    args = parser.parse_args()
+    skip_systematics = args.nosys
+
     # --- ggH ---
-    ggh_cats = ["ggHcat1", "ggHcat2", "ggHcat3", "ggHcat4", "ggHcat5"]
+    ggh_cats = get_categories("ggH")
     ggh_path = f"{root_io}/tuples/split_tuples/ggH/ws_GG2H"
+    ggh_path = f"../inputs/ws_signal/"
+
+    vbf_cats = get_categories("VBF")
+    vbf_path = f"{root_io}/tuples/split_tuples/VBF/ws_VBF"
+    vbf_path = f"../inputs/ws_signal/"
+
     print("---------------------------- ggH -----------------------------------")
     for cat in ggh_cats:
-        run_datacard(cat=cat, channel="ggH", ws_path=ggh_path)
+        run_datacard(
+            cat=cat, channel="ggH", ws_path=ggh_path, skip_systematics=skip_systematics
+        )
 
-    run_combined_datacard(cats=ggh_cats, channel="ggH", ws_path=ggh_path)
+    run_combined_datacard(
+        cats=ggh_cats,
+        channel="ggH",
+        ws_path=ggh_path,
+        skip_systematics=skip_systematics,
+    )
 
     # Save the ggH yields for the final Datacard
     ggh_dir = Path("yields_tutorial/ggH")
@@ -112,15 +168,18 @@ def main() -> None:
 
     rm_glob("yields_tutorial/*.pkl")
 
-    # --- VBF ---
-    vbf_cats = ["VBFcat1", "VBFcat2", "VBFcat3", "VBFcat4", "VBFcat5", "VBFcat6", "VBFcat7"]
-    vbf_path = f"{root_io}/tuples/split_tuples/VBF/ws_VBF"
-
     print("---------------------------- VBF -----------------------------------")
     for cat in vbf_cats:
-        run_datacard(cat=cat, channel="VBF", ws_path=vbf_path)
+        run_datacard(
+            cat=cat, channel="VBF", ws_path=vbf_path, skip_systematics=skip_systematics
+        )
 
-    run_combined_datacard(cats=vbf_cats, channel="VBF", ws_path=vbf_path)
+    run_combined_datacard(
+        cats=vbf_cats,
+        channel="VBF",
+        ws_path=vbf_path,
+        skip_systematics=skip_systematics,
+    )
 
     # --- Final Combined ---
     print("---------------------------- Combined -----------------------------------")
@@ -135,10 +194,9 @@ def main() -> None:
         else:
             print(f"WARNING: expected stashed ggH yield not found: {src}")
 
-    make_datacard()
+    make_datacard(skip_systematics=skip_systematics)
     shutil.copyfile("Datacard_tutorial.txt", f"Datacard_tutorial_All.txt")
     shutil.copyfile("Datacard_tutorial.pkl", f"Datacard_tutorial_All.pkl")
-
 
     # Final cleanup
     rm_glob("yields_tutorial/*.pkl")
@@ -146,4 +204,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

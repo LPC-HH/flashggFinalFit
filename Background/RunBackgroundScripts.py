@@ -15,6 +15,13 @@ def get_options():
   parser.add_option('--mode', dest='mode', default='std', help="Which script to run. Options: ['fTestOnly','fTestParallel','bkgPlotsOnly']")
   parser.add_option('--jobOpts', dest='jobOpts', default='', help="Additional options to add to job submission. For Condor separate individual options with a colon (specify all within quotes e.g. \"option_xyz = abc+option_123 = 456\")")
   parser.add_option('--printOnly', dest='printOnly', default=False, action="store_true", help="Dry run: print submission files only") 
+  parser.add_option(
+    '--fitForToy',
+    dest='fitForToy',
+    default=False,
+    action='store_true',
+    help='Use alternative background functions for toy generation'
+  )
   return parser.parse_args()
 
 (opt,args) = get_options()
@@ -50,6 +57,7 @@ if opt.inputConfig != '':
     options['mode']                    = opt.mode
     options['jobOpts']                 = opt.jobOpts
     options['printOnly']               = opt.printOnly
+    options['fitForToy'] = opt.fitForToy
 
     # Delete copy of file
     os.system("rm config.py")
@@ -85,6 +93,7 @@ print(" --> Extension: %s"%options['ext'])
 print(" --> Category offset: %g"%options['catOffset'])
 print(" --> nBinsPerGeV : %g"%options['nBinsPerGeV'])
 print(" --> Year: %s ::: Corresponds to intLumi = %s fb^-1"%(options['year'],options['lumi']))
+print(" --> Fit for toy: %s" % options['fitForToy'])
 print("")
 print(" --> Job information:")
 print("     * Batch: %s"%options['batch'])
