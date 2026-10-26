@@ -29,28 +29,20 @@ cd CombineHarvester && git fetch origin ${COMBINEHARVESTER_TAG} && git checkout 
 
 # Compile libraries
 cd ${CMSSW_BASE}/src
+
+# Clone Final Fit package
+git clone git@github.com:LPC-HH/flashggFinalFit.git
+
 cmsenv
 scram b clean
 scram b -j 8
 
-# Install Final Fit package
-git clone git@github.com:LPC-HH/flashggFinalFit.git
 cd flashggFinalFit/
 cd Background
 make clean
 make
 cd ..
-source setup.sh
 ```
-
-Add: please redo the scram b -j 8 after installing the final fit package, since the DYCore is put as a Combine plugin now.
-
-## User changes
-Make sure to update the Background/RootDict.cxx and DYCore/src/RooDYSplineCore.cc to have your user information #TODO MAKE THIS AUTOMATIC
-
-## reminder
-Each time after updating something in `Background`, please `make clean` and `make` to make the change work. Each time after updating DYCore related staff, please go back to `src` to `scram b clean` and `scram b -j 8`.
-
 
 ## Contents
 The Finals Fits package contains several subfolders which are used for the following steps:
@@ -67,17 +59,29 @@ Finally, the objects and tools which are common to all subfolders are defined in
 
 Each of the relevant folders are documented with specific `README.md` files. 
 
-## Running fits
-To run the fits most easily, use the run_fits.sh script
+## Reminder
+Each time after updating something in `Background`, please `make clean` and `make` to make the change work. Each time after updating DYCore related staff, please go back to `src` to `scram b clean` and `scram b -j 8`.
+
+
+## Workflow
+
+Before running the fits, update the path to the input tuples in `setup.sh`, then initialize the environment:
+```
+source setup.sh
+```
+
+Also, update the number of ggH and VBF categories in `category_config.py`
+
+To run the fits most easily, use the run_fits.sh script, this will run the signal fits, Bkg fits, generate the datacards, and calculte the expected significance 
 ```
 bash run_fits.sh -r #removes previous fitting results and plots
 bash run_fits.sh
+
+```
+If you haven't calculate the systematics run 
+
+```
+bash run_fits.sh --nosys
 ```
 
-## Updating categories
-To change the number of categories, you need to change the following
-1. run_fits.sh: lines 88, 92, 109, 121
-2. Datacard/generate_datacards.py: lines 92, 116
-3. Combine/run_workspace.sh: lines 7, 8
-4. Combine/run_asym.sh: line 6
-5. Combine/run_sig.sh: line 6
+For instructions on running the signal strength likelihood scan, impacts, and bias tests, see Combine/README.md.

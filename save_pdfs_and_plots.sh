@@ -1,8 +1,8 @@
 #!/bin/bash
-
 set -e
 
-VERSION="v2p4p2_elise_22octpresentation"
+# Get version from command-line argument
+VERSION="${1:?ERROR: Please provide a version name. Usage: bash save_fits.sh <version>}"
 
 echo "Organizing outputs into ${VERSION}..."
 
@@ -20,7 +20,6 @@ mkdir -p "Plots/${VERSION}"
 mv -v Plots/plots_toys "Plots/${VERSION}/"
 
 # Datacards
-
 mkdir -p "Datacard/${VERSION}"
 mv -v Datacard/Datacard_tutorial* "Datacard/${VERSION}/"
 
