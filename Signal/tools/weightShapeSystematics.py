@@ -137,7 +137,7 @@ def fit_weight_shapes(opt, nominal, fit_proc, fit_cat, xvar, mh, mh_low, mh_high
             for key, variable in fit.Vars.items():
                 if key in nominal.Vars:
                     variable.setVal(nominal.Vars[key].getVal())
-            fit.runFit()
+            fit.runFit(isSystematic=True)
             if not fit.FitResult.success or not math.isfinite(float(fit.FitResult.fun)):
                 raise RuntimeError(
                     "Failed %s %s shape fit: %s"

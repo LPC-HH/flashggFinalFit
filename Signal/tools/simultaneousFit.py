@@ -337,7 +337,7 @@ class SimultaneousFit:
     self.Pdfs['final'] = ROOT.RooAddPdf("%s_%s"%(self.proc,self.cat),"%s_%s"%(self.proc,self.cat),_pdfs,_coeffs,_recursive)
     
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   
-  def runFit(self):
+  def runFit(self,isSystematic=False):
     # Extract fit variables: remove xvar from fit parameters
     fv = self.Pdfs['final'].getVariables().Clone()
     fv.remove(self.xvar)
@@ -353,17 +353,22 @@ class SimultaneousFit:
 
     # Run fit
     if self.verbose: print(" --> (%s) Running fit"%self.name)
-    # TNC defaults to max(100,10*nParameters), which can stop the DCB fit
-    # before convergence. Use the same larger budget for nominal and variations.
-    fitOptions = {'maxfun':10000} if self.minimizerMethod.upper() == 'TNC' else {}
-    self.FitResult = minimize(nChi2Addition,x0,args=self,bounds=xbounds,method=self.minimizerMethod,options=fitOptions)
-    # The last objective call may be a finite-difference probe, not the minimum.
-    for i,value in enumerate(self.FitResult.x): self.FitParameters[i].setVal(float(value))
+    if isSystematic:
+      fitOptions = {'maxfun':10000} if self.minimizerMethod.upper() == 'TNC' else {}
+      self.FitResult = minimize(nChi2Addition,x0,args=self,bounds=xbounds,method=self.minimizerMethod,options=fitOptions)
+      if not self.FitResult.success or not np.isfinite(self.FitResult.fun):
+        print(' --> (%s) %s did not converge (%s). Retrying with bounded Powell.'%(self.name,self.minimizerMethod,self.FitResult.message))
+        retryX = self.FitResult.x if np.all(np.isfinite(self.FitResult.x)) and np.isfinite(self.FitResult.fun) else x0
+        self.FitResult = minimize(nChi2Addition,retryX,args=self,bounds=xbounds,method='Powell',
+                                  options={'maxfev':30000,'maxiter':1000,'xtol':1.e-6,'ftol':1.e-8})
+      for i,value in enumerate(self.FitResult.x): self.FitParameters[i].setVal(float(value))
+    else:
+      self.FitResult = minimize(nChi2Addition,x0,args=self,bounds=xbounds,method=self.minimizerMethod)
     self.Chi2 = self.getChi2()
     #self.Chi2 = nChi2Addition(self.FitResult['x'],self)
     # Print parameter post-fit values
     if self.verbose: self.printFitParameters(title="Post-fit")
-    if not self.FitResult.success or not np.isfinite(self.FitResult.fun):
+    if isSystematic and (not self.FitResult.success or not np.isfinite(self.FitResult.fun)):
       raise RuntimeError('Failed %s fit for (%s,%s) after %g evaluations: %s'%(self.name,self.proc,self.cat,self.FitResult.nfev,self.FitResult.message))
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   
