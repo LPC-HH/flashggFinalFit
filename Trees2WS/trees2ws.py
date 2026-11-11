@@ -33,6 +33,7 @@ import pandas
 import numpy as np
 import uproot
 import awkward as ak
+from array import array
 
 from commonTools import *
 from commonObjects import *
@@ -104,10 +105,11 @@ else:
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # For theory weights: create vars for each weight
+weightShapeBranches = ['weight_LHEScal_%g'%i for i in range(9)]
+weightShapeBranches += ['weight_LHEPd_%g'%i for i in range(103)]
 if opt.doWeightShapeSystematics:
-  mainVars = list(mainVars) + ['weight_LHEScal_%g'%i for i in range(9)]
-  mainVars += ['weight_LHEPd_%g'%i for i in range(103)]
-  mainVars = list(dict.fromkeys(mainVars))
+  # LHE event columns are streamed to separate TTrees, not workspace datasets.
+  mainVars = [v for v in mainVars if v not in weightShapeBranches]
 
 theoryWeightColumns = {}
 for ts, nWeights in theoryWeightContainers.items(): theoryWeightColumns[ts] = ["%s_%g"%(ts[:-1],i) for i in range(0,nWeights)] # drop final s from container name
@@ -169,6 +171,8 @@ for cat in cats:
   for var in mainVars:
     if "*" in var:
       dfs[var] = t.arrays(filter_name=var, library='pd')
+      if opt.doWeightShapeSystematics:
+        dfs[var] = dfs[var].drop(columns=weightShapeBranches,errors='ignore')
 
   # Concatenate current dataframes
   df = pandas.concat(dfs.values(), axis=1)
@@ -255,10 +259,6 @@ for stxsId in data[stxsVar].unique():
   fout = ROOT.TFile(outputWSFile,"RECREATE")
   foutdir = fout.mkdir(inputWSName__.split("/")[0])
   foutdir.cd()
-  # LHE columns can push vector-backed datasets beyond ROOT's single-object
-  # serialization limit. Tree storage writes event data in separate baskets.
-  if opt.doWeightShapeSystematics:
-    ROOT.RooAbsData.setDefaultStorageType(ROOT.RooAbsData.Tree)
   ws = ROOT.RooWorkspace(inputWSName__.split("/")[1],inputWSName__.split("/")[1])
   
   # Add variables to workspace
@@ -285,6 +285,32 @@ for stxsId in data[stxsVar].unique():
 
     # Add to workspace
     getattr(ws,'import')(d)
+    del d
+
+    if opt.doWeightShapeSystematics:
+      # Keep LHE data outside RooWorkspace: importing clones every dataset and
+      # can exhaust memory even when its backing store is a tree.
+      foutdir.cd()
+      lheName = '%s_lhe'%dName
+      lheTree = ROOT.TTree(lheName,lheName)
+      lheTree.SetAutoFlush(-30000000)
+      lheColumns = ['CMS_hgg_mass','weight'] + weightShapeBranches
+      buffers = {v: array('d',[0.]) for v in lheColumns}
+      for var in lheColumns:
+        lheTree.Branch(var,buffers[var],'%s/D'%var)
+      treeName = '%s_%s_%s_%s'%(opt.productionMode,opt.inputMass,sqrts__,cat)
+      if inputTreeDir != '': treeName = '%s/%s'%(inputTreeDir,treeName)
+      readColumns = lheColumns + ([stxsVar] if opt.doSTXSSplitting else [])
+      for chunk in f[treeName].iterate(readColumns,library='np',step_size='10 MB'):
+        selected = np.ones(len(chunk['weight']),dtype=bool)
+        if opt.doSTXSSplitting: selected = chunk[stxsVar] == stxsId
+        for index in np.flatnonzero(selected):
+          for var in lheColumns: buffers[var][0] = float(chunk[var][index])
+          lheTree.Fill()
+      if lheTree.Write() <= 0:
+        raise RuntimeError('Failed to write LHE tree: %s'%lheName)
+      lheTree.SetDirectory(0)
+      del lheTree, buffers
 
     if opt.doSystematics:
       # b) make RooDataHists for systematic variations

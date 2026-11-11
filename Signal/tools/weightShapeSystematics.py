@@ -11,6 +11,8 @@ import os
 from collections import OrderedDict
 
 import ROOT
+import numpy as np
+import uproot
 from commonObjects import inputWSName__, outputWSNuisanceTitle__, sqrts__, swd__
 from commonTools import procToData
 from simultaneousFit import SimultaneousFit
@@ -34,15 +36,7 @@ def fit_weight_shapes(opt, nominal, fit_proc, fit_cat, xvar, mh, mh_low, mh_high
         paths = glob.glob('%s/output*M%s*%s.root'%(opt.inputWSDir,mass,fit_proc))
         if len(paths) != 1:
             raise RuntimeError('Expected one input workspace for %s M%s: %s'%(fit_proc,mass,paths))
-        handle = ROOT.TFile.Open(paths[0])
-        workspace = handle.Get(inputWSName__)
         data_name = '%s_%s_%s_%s'%(procToData(fit_proc.split('_')[0]),mass,sqrts__,fit_cat)
-        data = workspace.data(data_name)
-        if not data:
-            raise RuntimeError('Missing dataset %s in %s'%(data_name,paths[0]))
-        for branch in branches:
-            if not data.get().find(branch):
-                raise RuntimeError('Missing %s in %s; rebuild tuple workspaces'%(branch,data_name))
 
         # Use exactly the nominal fit binning before combining LHE variations.
         prefix = '%s_%s_%s_%s'%(opt.proc,opt.cat,opt.year,mass)
@@ -52,18 +46,25 @@ def fit_weight_shapes(opt, nominal, fit_proc, fit_cat, xvar, mh, mh_low, mh_high
             histograms[branch] = ROOT.TH1D(name,name,opt.nBins,xvar.getMin(),xvar.getMax())
             histograms[branch].SetDirectory(0)
             histograms[branch].Sumw2()
-        for index in range(data.numEntries()):
-            row = data.get(index)
-            value, weight = row.getRealValue(opt.xvar), data.weight()
-            if not math.isfinite(value) or not math.isfinite(weight):
-                raise RuntimeError('Non-finite nominal event in %s'%data_name)
-            histograms['nominal'].Fill(value,weight)
-            for branch in branches:
-                varied_weight = weight * row.getRealValue(branch)
-                if not math.isfinite(varied_weight):
-                    raise RuntimeError('Non-finite %s in %s'%(branch,data_name))
-                histograms[branch].Fill(value,varied_weight)
-        handle.Close()
+        with uproot.open(paths[0]) as handle:
+            tree_path = '%s/%s_lhe'%(inputWSName__.rsplit('/',1)[0],data_name)
+            if tree_path not in handle:
+                raise RuntimeError('Missing %s in %s; rebuild tuple workspaces'%(tree_path,paths[0]))
+            tree = handle[tree_path]
+            for branch in [opt.xvar,'weight'] + branches:
+                if branch not in tree:
+                    raise RuntimeError('Missing %s in %s'%(branch,tree_path))
+            for chunk in tree.iterate([opt.xvar,'weight']+branches,library='np',step_size='10 MB'):
+                values = np.ascontiguousarray(chunk[opt.xvar],dtype='float64')
+                weights = np.ascontiguousarray(chunk['weight'],dtype='float64')
+                if not np.all(np.isfinite(values)) or not np.all(np.isfinite(weights)):
+                    raise RuntimeError('Non-finite nominal event in %s'%data_name)
+                histograms['nominal'].FillN(len(values),values,weights)
+                for branch in branches:
+                    varied_weights = np.ascontiguousarray(weights*chunk[branch],dtype='float64')
+                    if not np.all(np.isfinite(varied_weights)):
+                        raise RuntimeError('Non-finite %s in %s'%(branch,data_name))
+                    histograms[branch].FillN(len(values),values,varied_weights)
 
         central = histograms['nominal']
         reference = histograms['weight_LHEScal_4']
