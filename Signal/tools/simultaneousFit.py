@@ -141,7 +141,7 @@ def nChi2Addition(X,ssf,verbose=False):
   C = len(X)-1 # number of fit params (-1 for MH)
   for mp,d in ssf.DataHists.items():
     ssf.MH.setVal(int(mp))
-    chi2, k  = calcChi2(ssf.xvar,ssf.Pdfs['final'],d,_verbose=verbose)
+    chi2, k  = calcChi2(ssf.xvar,ssf.Pdfs['final'],d,errorType=getattr(ssf,'fitErrorType','Poisson'),_verbose=verbose)
     chi2sum += chi2
     K += k
   # N degrees of freedom
@@ -338,6 +338,9 @@ class SimultaneousFit:
     
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   
   def runFit(self,isSystematic=False):
+    # LHE combinations can have signed bin contents. Use their stored SumW2
+    # errors for all four systematic fits; preserve the nominal Poisson choice.
+    self.fitErrorType = 'SumW2' if isSystematic else 'Poisson'
     # Extract fit variables: remove xvar from fit parameters
     fv = self.Pdfs['final'].getVariables().Clone()
     fv.remove(self.xvar)

@@ -24,7 +24,7 @@ def fit_weight_shapes(opt, nominal, fit_proc, fit_cat, xvar, mh, mh_low, mh_high
     # Hold all RooFit dependencies alive until FinalModel has been saved.
     objects = []
     variations = {}
-    report = {"fit_proc": fit_proc, "fit_cat": fit_cat, "parameters": {}}
+    report = {"fit_proc": fit_proc, "fit_cat": fit_cat, "fit_error_type": "SumW2", "parameters": {}}
     scale_indices = [0, 1, 3, 4, 5, 7, 8]
     branches = ['weight_LHEScal_%g'%i for i in scale_indices]
     branches += ['weight_LHEPd_%g'%i for i in range(103)]
@@ -97,9 +97,7 @@ def fit_weight_shapes(opt, nominal, fit_proc, fit_cat, xvar, mh, mh_low, mh_high
                 # prescription. These do not include uncertainty on the envelope.
                 for b in range(1,hist.GetNbinsX()+1):
                     if 110 <= hist.GetBinCenter(b) <= 140:
-                        if hist.GetBinContent(b) < 0:
-                            raise RuntimeError('Negative %s %s bin %g in %s; cannot fit with the current Poisson chi-square'%(source,direction,b,data_name))
-                        if hist.GetBinContent(b) > 0 and hist.GetBinError(b) <= 0:
+                        if hist.GetBinContent(b) != 0 and hist.GetBinError(b) <= 0:
                             raise RuntimeError('Missing statistical error for %s %s bin %g in %s'%(source,direction,b,data_name))
                 if hist.Integral() <= 0 or target <= 0:
                     raise RuntimeError('Non-positive %s %s integral in %s'%(source,direction,data_name))
