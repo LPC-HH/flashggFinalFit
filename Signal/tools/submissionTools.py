@@ -1,11 +1,12 @@
 import os
 import glob
 import re
+import subprocess
 from commonObjects import *
 
 def run(cmd):
   print("%s\n\n"%cmd)
-  os.system(cmd)
+  subprocess.check_call(cmd, shell=True)
 
 def writePreamble(_file):
   _file.write("#!/bin/bash\n")

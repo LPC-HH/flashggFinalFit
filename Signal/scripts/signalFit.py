@@ -17,6 +17,7 @@ from XSBRMap import *
 from simultaneousFit import *
 from finalModel import *
 from plottingTools import *
+from weightShapeSystematics import fit_weight_shapes
 
 # Constant
 MHLow, MHHigh = '120', '130'
@@ -45,6 +46,8 @@ def get_options():
   parser.add_option('--skipVertexScenarioSplit', dest='skipVertexScenarioSplit', default=False, action="store_true", help="Skip vertex scenario split")
   parser.add_option('--skipZeroes', dest='skipZeroes', default=False, action="store_true", help="Skip proc x cat is numEntries = 0., or sumEntries < 0.")
   # For systematics
+  parser.add_option('--doWeightShapeSystematics', action='store_true', default=False,
+                    help='Fit LHE QCD envelope/PDF quadrature and interpolate PDF parameters')
   parser.add_option('--skipSystematics', dest='skipSystematics', default=False, action="store_true", help="Skip shape systematics in signal model")
   parser.add_option('--useDiagonalProcForSyst', dest='useDiagonalProcForSyst', default=False, action="store_true", help="Use diagonal process for systematics (requires diagonal mapping produced by getDiagProc script)")
   parser.add_option("--scales", dest='scales', default='', help="Photon shape systematics: scales")
@@ -297,8 +300,23 @@ if not opt.skipVertexScenarioSplit:
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # FINAL MODEL: construction
+weightShapeObjects = None
+if opt.doWeightShapeSystematics:
+  if not opt.skipVertexScenarioSplit or not opt.skipBeamspotReweigh:
+    raise RuntimeError('Weight shape fits require --skipVertexScenarioSplit --skipBeamspotReweigh')
+  weightShapeObjects = fit_weight_shapes(
+      opt, ssfMap['Total'], procRVFit, catRVFit, xvar, MH, MHLow, MHHigh)
+
 print("\n --> Constructing final model")
 fm = FinalModel(ssfMap,opt.proc,opt.cat,opt.ext,opt.year,sqrts__,nominalDatasets,xvar,MH,MHLow,MHHigh,opt.massPoints,xsbrMap,procSyst,opt.scales,opt.scalesCorr,opt.scalesGlobal,opt.smears,opt.doVoigtian,opt.useDCB,opt.skipVertexScenarioSplit,opt.skipSystematics)
+if opt.doWeightShapeSystematics:
+  variables = fm.Pdfs['final'].getVariables()
+  for source in ('qcd', 'pdf'):
+    nuisance = variables.find('%s_%s_shape' % (outputWSNuisanceTitle__, source))
+    if not nuisance or not fm.Pdfs['final'].dependsOn(nuisance):
+      raise RuntimeError('Missing %s shape dependence in final signal PDF' % source)
+    if fm.Functions['final_norm'].dependsOn(nuisance):
+      raise RuntimeError('%s shape nuisance unexpectedly changes the signal rate' % source)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # SAVE: to output workspace

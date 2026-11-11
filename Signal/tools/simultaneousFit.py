@@ -215,6 +215,17 @@ class SimultaneousFit:
     # Loop over datasets and normalise to 1
     for k,d in self.datasetForFit.items():
       sumw = d.sumEntries()
+      # Envelope/quadrature inputs are already binned. Preserve their SumW2
+      # errors when normalising rather than treating each bin as one event.
+      if d.InheritsFrom('RooDataHist'):
+        drw = ROOT.RooDataHist('%s_hist'%d.GetName(),'%s_hist'%d.GetName(),ROOT.RooArgSet(self.xvar))
+        for i in range(d.numEntries()):
+          self.xvar.setVal(d.get(i).getRealValue(self.xvar.GetName()))
+          eLo, eHi = ctypes.c_double(), ctypes.c_double()
+          d.weightError(eLo,eHi,ROOT.RooAbsData.SumW2)
+          drw.add(ROOT.RooArgSet(self.xvar),d.weight()/sumw,(eHi.value/sumw)**2)
+        self.DataHists[k] = drw
+        continue
       drw = d.emptyClone()
       self.Vars['weight'] = ROOT.RooRealVar("weight","weight",-10000,10000)
       for i in range(0,d.numEntries()):

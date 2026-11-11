@@ -19,6 +19,8 @@ def get_options():
   parser.add_option('--decayExt',dest='decayExt', default='', help='Decay extension')
   parser.add_option('--doNNLOPS',dest='doNNLOPS', default=False, action="store_true", help='Add NNLOPS weight variable: NNLOPSweight')
   parser.add_option('--doSystematics',dest='doSystematics', default=False, action="store_true", help='Add systematics datasets to output WS')
+  parser.add_option('--doWeightShapeSystematics', action='store_true', default=False,
+                    help='Preserve LHE scale/PDF weight branches in nominal datasets')
   parser.add_option('--doSTXSSplitting',dest='doSTXSSplitting', default=False, action="store_true", help='Split output WS per STXS bin')
   return parser.parse_args()
 (opt,args) = get_options()
@@ -102,6 +104,11 @@ else:
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # For theory weights: create vars for each weight
+if opt.doWeightShapeSystematics:
+  mainVars = list(mainVars) + ['weight_LHEScal_%g'%i for i in range(9)]
+  mainVars += ['weight_LHEPd_%g'%i for i in range(103)]
+  mainVars = list(dict.fromkeys(mainVars))
+
 theoryWeightColumns = {}
 for ts, nWeights in theoryWeightContainers.items(): theoryWeightColumns[ts] = ["%s_%g"%(ts[:-1],i) for i in range(0,nWeights)] # drop final s from container name
 

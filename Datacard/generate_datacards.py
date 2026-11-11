@@ -72,7 +72,7 @@ def make_datacard(skip_systematics: bool = False) -> None:
         cmd.extend(
             [
                 "--doMCStatUncertainty",
-                "--doSystematic",
+                "--doSystematics",
             ]
         )
 

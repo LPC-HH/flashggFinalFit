@@ -306,6 +306,10 @@ for era in JES_ERAS:
 # match the definition in the signal models
 
 signal_shape_systematics = [
+    {'name': 'qcd_shape', 'title': 'qcd_shape', 'type': 'signal_shape',
+     'mode': 'other', 'mean': '0', 'sigma': '1'},
+    {'name': 'pdf_shape', 'title': 'pdf_shape', 'type': 'signal_shape',
+     'mode': 'other', 'mean': '0', 'sigma': '1'},
   #  {
   #      "name": "peak_ggH_ggHcat1",
   #      "title": "peak_ggH_ggHcat1",

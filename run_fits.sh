@@ -34,6 +34,12 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+TREE_SHAPE_OPTS=()
+SIGNAL_SHAPE_OPTS=""
+if ! $SKIP_SYSTEMATICS; then
+    TREE_SHAPE_OPTS=(--doWeightShapeSystematics)
+    SIGNAL_SHAPE_OPTS="--doWeightShapeSystematics"
+fi
 
 if $REMOVE_PREVIOUS; then
     echo "Removing previous results..."
@@ -86,13 +92,13 @@ if ! $SKIP_BLOCK; then
   python3 trees2ws.py \
     --inputConfig config_tutorial.py \
     --inputTreeFile ${ROOT_IO}/tuples/split_tuples/ggH/output_signal_M125_13TeV_cats_pythia8.root \
-    --inputMass 125 --productionMode ggh --year combined
+    --inputMass 125 --productionMode ggh --year combined "${TREE_SHAPE_OPTS[@]}"
 
   echo "[INFO] Running trees2ws for VBF signal"
   python3 trees2ws.py \
     --inputConfig config_tutorial.py \
     --inputTreeFile ${ROOT_IO}/tuples/split_tuples/VBF/output_signal_M125_13TeV_cats_pythia8.root \
-    --inputMass 125 --productionMode vbf --year combined
+    --inputMass 125 --productionMode vbf --year combined "${TREE_SHAPE_OPTS[@]}"
   
   cd ..
   python3 cp_workspaces.py
@@ -105,10 +111,10 @@ if ! $SKIP_BLOCK; then
   #python3 RunSignalScripts.py --inputConfig config_tutorial_combined.py --mode fTest --modeOpts "--doPlots"
 
   echo "[INFO] Running signalFit for ggH"
-  python3 RunSignalScripts.py --inputConfig config_tutorial_combined.py --mode signalFit --modeOpts "--doPlots --useDCB --skipVertexScenarioSplit --skipSystematics --massPoints 125 --skipBeamspotReweigh" --groupSignalFitJobsByCat
+  python3 RunSignalScripts.py --inputConfig config_tutorial_combined.py --mode signalFit --modeOpts "--doPlots --useDCB --skipVertexScenarioSplit --skipSystematics --massPoints 125 --skipBeamspotReweigh ${SIGNAL_SHAPE_OPTS}" --groupSignalFitJobsByCat
 
   echo "[INFO] Running signalFit for VBF"
-  python3 RunSignalScripts.py --inputConfig config_tutorial_combined_VBF.py --mode signalFit --modeOpts "--doPlots --useDCB --skipVertexScenarioSplit --skipSystematics --massPoints 125 --skipBeamspotReweigh" --groupSignalFitJobsByCat
+  python3 RunSignalScripts.py --inputConfig config_tutorial_combined_VBF.py --mode signalFit --modeOpts "--doPlots --useDCB --skipVertexScenarioSplit --skipSystematics --massPoints 125 --skipBeamspotReweigh ${SIGNAL_SHAPE_OPTS}" --groupSignalFitJobsByCat
 
   echo "[INFO] Packaging signal fits"
   #python3 RunPackager.py \
