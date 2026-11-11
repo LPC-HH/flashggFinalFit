@@ -14,6 +14,7 @@ import ROOT
 from commonObjects import inputWSName__, outputWSNuisanceTitle__, sqrts__, swd__
 from commonTools import procToData
 from simultaneousFit import SimultaneousFit
+from plottingTools import plotPdfComponents
 
 
 def fit_weight_shapes(opt, nominal, fit_proc, fit_cat, xvar, mh, mh_low, mh_high):
@@ -143,6 +144,12 @@ def fit_weight_shapes(opt, nominal, fit_proc, fit_cat, xvar, mh, mh_low, mh_high
                 )
             for index, value in enumerate(fit.FitResult.x):
                 fit.FitParameters[index].setVal(float(value))
+            if opt.doPlots:
+                plot_dir = '%s/outdir_%s/signalFit/Plots'%(swd__,opt.ext)
+                os.makedirs(plot_dir,exist_ok=True)
+                plotPdfComponents(fit,_outdir=plot_dir,
+                                  _extension='%s_%s_%s_'%(source,direction,opt.year),
+                                  _proc=opt.proc,_cat=opt.cat)
             fit.buildSplines()
             variations[source][direction] = fit
             objects.append(fit)
