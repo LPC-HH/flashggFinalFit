@@ -353,11 +353,18 @@ class SimultaneousFit:
 
     # Run fit
     if self.verbose: print(" --> (%s) Running fit"%self.name)
-    self.FitResult = minimize(nChi2Addition,x0,args=self,bounds=xbounds,method=self.minimizerMethod)
+    # TNC defaults to max(100,10*nParameters), which can stop the DCB fit
+    # before convergence. Use the same larger budget for nominal and variations.
+    fitOptions = {'maxfun':10000} if self.minimizerMethod.upper() == 'TNC' else {}
+    self.FitResult = minimize(nChi2Addition,x0,args=self,bounds=xbounds,method=self.minimizerMethod,options=fitOptions)
+    # The last objective call may be a finite-difference probe, not the minimum.
+    for i,value in enumerate(self.FitResult.x): self.FitParameters[i].setVal(float(value))
     self.Chi2 = self.getChi2()
     #self.Chi2 = nChi2Addition(self.FitResult['x'],self)
     # Print parameter post-fit values
     if self.verbose: self.printFitParameters(title="Post-fit")
+    if not self.FitResult.success or not np.isfinite(self.FitResult.fun):
+      raise RuntimeError('Failed %s fit for (%s,%s) after %g evaluations: %s'%(self.name,self.proc,self.cat,self.FitResult.nfev,self.FitResult.message))
 
   # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   
   # Function build RooSpline1D from Polynomials to model MH dependence on fit params
