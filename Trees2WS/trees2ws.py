@@ -255,6 +255,10 @@ for stxsId in data[stxsVar].unique():
   fout = ROOT.TFile(outputWSFile,"RECREATE")
   foutdir = fout.mkdir(inputWSName__.split("/")[0])
   foutdir.cd()
+  # LHE columns can push vector-backed datasets beyond ROOT's single-object
+  # serialization limit. Tree storage writes event data in separate baskets.
+  if opt.doWeightShapeSystematics:
+    ROOT.RooAbsData.setDefaultStorageType(ROOT.RooAbsData.Tree)
   ws = ROOT.RooWorkspace(inputWSName__.split("/")[1],inputWSName__.split("/")[1])
   
   # Add variables to workspace
@@ -308,7 +312,9 @@ for stxsId in data[stxsVar].unique():
           getattr(ws,'import')(h)
 
   # Write WS to file
-  ws.Write()
+  foutdir.cd()
+  if ws.Write() <= 0:
+    raise RuntimeError('Failed to write workspace: %s'%outputWSFile)
 
   # Close file and delete workspace from heap
   fout.Close()
