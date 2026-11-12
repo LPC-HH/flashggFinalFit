@@ -449,6 +449,262 @@ namespace {
 }
 
 // ---------------------------------------------------------------------------
+// Run-2 style sum of two exponentials (three parameters: f, a1, a2).
+//
+//    pdf(m) = f * exp(a1*(m-mZ)) / I1  +  (1-f) * exp(a2*m) / I2
+//
+// with the two analytic normalisations
+//
+//    I1 = Int_{mmin}^{mmax} exp(a1*(m-mZ)) dm
+//       = [ exp(a1*(mmax-mZ)) - exp(a1*(mmin-mZ)) ] / a1
+//    I2 = Int_{mmin}^{mmax} exp(a2*m) dm
+//       = [ exp(a2*mmax) - exp(a2*mmin) ] / a2
+//
+// so both components are normalised pdfs on [mmin,mmax] and f is a genuine
+// fraction.  The mZ offset in the first term is a constant factor that
+// cancels in the normalised shape; it is kept so that the formula matches
+// the Run-2 datacard.
+// ---------------------------------------------------------------------------
+RooAbsPdf* PdfModelBuilder::get2ExpOld3(string prefix)
+{
+    const double mmin = obs_var->getMin();
+    const double mmax = obs_var->getMax();
+    const double mZ   = 91.1876;
+
+    //---------------------------------
+    // fraction
+    //---------------------------------
+
+    RooRealVar* f =
+        new RooRealVar(
+            Form("%s_f",prefix.c_str()),
+            "fraction",
+            0.5,
+            0.0,
+            1.0
+        );
+
+
+    //---------------------------------
+    // the two exponentials
+    //   exp(a1*(m-mZ))  (normalised by I1)
+    //   exp(a2*m)       (normalised by I2)
+    //---------------------------------
+
+    RooRealVar* a1 =
+        new RooRealVar(
+            Form("%s_a1",prefix.c_str()),
+            "exponent 1",
+            -0.02,
+            -0.15,
+            0.15
+        );
+
+    RooRealVar* a2 =
+        new RooRealVar(
+            Form("%s_a2",prefix.c_str()),
+            "exponent 2",
+            -0.06,
+            -0.15,
+            0.15
+        );
+
+
+    //---------------------------------
+    // save parameters
+    //---------------------------------
+
+    params.insert({f->GetName(),f});
+    params.insert({a1->GetName(),a1});
+    params.insert({a2->GetName(),a2});
+
+
+    //---------------------------------
+    // construct formula
+    //
+    // 1/I1 = a1 / [exp(a1*(mmax-mZ)) - exp(a1*(mmin-mZ))]
+    // 1/I2 = a2 / [exp(a2*mmax)      - exp(a2*mmin)]
+    //---------------------------------
+
+    const string smin = Form("%g",mmin);
+    const string smax = Form("%g",mmax);
+    const string sZ   = Form("%g",mZ);
+
+    string formula =
+        "@1*@2*exp(@2*(@0-" + sZ + "))"
+        "/(exp(@2*(" + smax + "-" + sZ + "))-exp(@2*(" + smin + "-" + sZ + ")))"
+        "+"
+        "(1-@1)*@3*exp(@3*@0)"
+        "/(exp(@3*" + smax + ")-exp(@3*" + smin + "))";
+
+
+    //---------------------------------
+    // return pdf
+    //---------------------------------
+
+    return new RooGenericPdf(
+        prefix.c_str(),
+        "Run-2 two exponential sum (analytically normalised)",
+        formula.c_str(),
+        RooArgList(
+            *obs_var,
+            *f,
+            *a1,
+            *a2
+        )
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Sum of two exponentials where the first one can be a polynomial of degree
+// 1, 2 or 3 in u = m - mZ:
+//
+//   pdf(m) = f * exp(a1*u + b1*u^2 + c1*u^3) / I1  +  (1-f) * exp(a2*m) / I2
+//
+// The normalisation of the first term is always the *linear* one
+//
+//   I1 = Int exp(a1*u) du = [ exp(a1*(mmax-mZ)) - exp(a1*(mmin-mZ)) ] / a1
+//
+// because the higher order terms have no simple closed form.  The overall pdf
+// is normalised by RooFit anyway, so this only means that f is an effective
+// weight rather than an exact integral fraction.
+//
+// 'order' is the number of parameters, which the F-test varies in fTest:
+//   order 3 : f, a1, a2             (linear exponent)
+//   order 4 : f, a1, b1, a2         (quadratic exponent)
+//   order 5 : f, a1, b1, c1, a2     (cubic exponent)
+// Any other order returns NULL, so the F-test starts at order 3 and stops
+// after order 5.
+// ---------------------------------------------------------------------------
+RooAbsPdf* PdfModelBuilder::get2ExpNew(string prefix, int order)
+{
+    if (order < 3 || order > 5) return 0;
+
+    const double mmin = obs_var->getMin();
+    const double mmax = obs_var->getMax();
+    const double mZ   = 91.1876;
+
+    RooArgList args;
+    args.add(*obs_var);   // @0
+
+    //---------------------------------
+    // fraction
+    //---------------------------------
+
+    RooRealVar* f =
+        new RooRealVar(
+            Form("%s_f",prefix.c_str()),
+            "fraction",
+            0.5,
+            0.0,
+            1.0
+        );
+    args.add(*f);         // @1
+
+
+    //---------------------------------
+    // first exponential: exp(a1*u + b1*u^2 + c1*u^3)
+    //---------------------------------
+
+    RooRealVar* a1 =
+        new RooRealVar(
+            Form("%s_a1",prefix.c_str()),
+            "exponent 1 (linear)",
+            -0.02,
+            -0.15,
+            0.15
+        );
+    args.add(*a1);        // @2
+
+    const string u = "(@0-" + string(Form("%g",mZ)) + ")";
+
+    string exp1 = Form("@%d*",(int)(args.getSize()-1)) + u;
+
+    if (order >= 4){
+        RooRealVar* b1 =
+            new RooRealVar(
+                Form("%s_b1",prefix.c_str()),
+                "exponent 1 (quadratic)",
+                0.0,
+                -0.002,
+                0.002
+            );
+        args.add(*b1);
+        exp1 += Form("+@%d*pow(%s,2)",(int)(args.getSize()-1),u.c_str());
+    }
+
+    if (order >= 5){
+        RooRealVar* c1 =
+            new RooRealVar(
+                Form("%s_c1",prefix.c_str()),
+                "exponent 1 (cubic)",
+                0.0,
+                -0.00005,
+                0.00005
+            );
+        args.add(*c1);
+        exp1 += Form("+@%d*pow(%s,3)",(int)(args.getSize()-1),u.c_str());
+    }
+
+    //---------------------------------
+    // second exponential: exp(a2*m)
+    //---------------------------------
+
+    RooRealVar* a2 =
+        new RooRealVar(
+            Form("%s_a2",prefix.c_str()),
+            "exponent 2",
+            -0.06,
+            -0.15,
+            0.15
+        );
+    args.add(*a2);
+
+    const string sF  = "@1";
+    const string sA1 = "@2";
+    const string sA2 = Form("@%d",(int)(args.getSize()-1));
+
+    //---------------------------------
+    // save parameters
+    //---------------------------------
+
+    for (int iarg = 1; iarg < args.getSize(); ++iarg){
+        RooRealVar* var = dynamic_cast<RooRealVar*>(args.at(iarg));
+        if (var) params.insert({var->GetName(),var});
+    }
+
+
+    //---------------------------------
+    // construct formula
+    //
+    // 1/I1 = a1 / [exp(a1*(mmax-mZ)) - exp(a1*(mmin-mZ))]
+    // 1/I2 = a2 / [exp(a2*mmax)      - exp(a2*mmin)]
+    //---------------------------------
+
+    const string smin = Form("%g",mmin);
+    const string smax = Form("%g",mmax);
+
+    string formula =
+        sF + "*" + sA1 + "*exp(" + exp1 + ")"
+        "/(exp(" + sA1 + "*(" + smax + "-" + string(Form("%g",mZ)) + "))-exp(" + sA1 + "*(" + smin + "-" + string(Form("%g",mZ)) + ")))"
+        "+"
+        "(1-" + sF + ")*" + sA2 + "*exp(" + sA2 + "*@0)"
+        "/(exp(" + sA2 + "*" + smax + ")-exp(" + sA2 + "*" + smin + "))";
+
+
+    //---------------------------------
+    // return pdf
+    //---------------------------------
+
+    return new RooGenericPdf(
+        prefix.c_str(),
+        Form("Sum of two exponentials (first term order %d)",order),
+        formula.c_str(),
+        args
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Produce a new starting configuration for the sum-of-exponentials pdf.
 //
 // The pdf is monotone by construction (see get2Exp):
@@ -529,6 +785,74 @@ bool PdfModelBuilder::set2ExpMonotonicInitValues(RooAbsPdf *pdf, unsigned int at
        << ", p1 = "    << p1->getVal()
        << ", p2 = "    << p2->getVal()
        << ", a2 = "    << a2->getVal() << endl;
+
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Starting configuration for the 2Exp_new model (f, a1, a2 and, depending on
+// the order, b1 and c1).  Seeded from the pdf name and 'attempt', so the
+// values are reproducible for a given (pdf, attempt) pair.
+// ---------------------------------------------------------------------------
+bool PdfModelBuilder::set2ExpNewInitValues(RooAbsPdf *pdf, unsigned int attempt)
+{
+  if (!pdf) return false;
+
+  // locate the 2Exp_new parameters by their names:
+  //   <prefix>_f, <prefix>_a1, <prefix>_a2 [, <prefix>_b1 [, <prefix>_c1]]
+  RooRealVar *f  = 0;
+  RooRealVar *a1 = 0;
+  RooRealVar *a2 = 0;
+  RooRealVar *b1 = 0;
+  RooRealVar *c1 = 0;
+
+  RooArgSet *vars = pdf->getVariables();
+  TIterator *varIt = vars->createIterator();
+  TObject *obj = 0;
+  while ((obj = varIt->Next())) {
+    RooRealVar *var = dynamic_cast<RooRealVar*>(obj);
+    if (!var) continue;
+    const string name = var->GetName();
+    if      (hasSuffix(name, "_f"))  f  = var;
+    else if (hasSuffix(name, "_a1")) a1 = var;
+    else if (hasSuffix(name, "_a2")) a2 = var;
+    else if (hasSuffix(name, "_b1")) b1 = var;
+    else if (hasSuffix(name, "_c1")) c1 = var;
+  }
+  delete varIt;
+  delete vars;
+
+  // not a 2Exp_new pdf -> nothing to do
+  if (!f || !a1 || !a2) return false;
+
+  // deterministic seed, different for every (pdf, attempt) pair
+  ULong64_t seed = 1469598103934665603ULL;
+  for (const char *ch = pdf->GetName(); *ch != '\0'; ++ch) {
+    seed *= 1099511628211ULL;
+    seed ^= static_cast<ULong64_t>(static_cast<unsigned char>(*ch));
+  }
+  seed += 0x9E3779B97F4A7C15ULL * (static_cast<ULong64_t>(attempt) + 1ULL);
+
+  TRandom3 rnd(seed);
+
+  auto drawVal = [&](RooRealVar *var, double lo, double hi) {
+    const double v = rnd.Uniform(lo, hi);
+    var->setVal(TMath::Max(var->getMin(), TMath::Min(var->getMax(), v)));
+  };
+
+  drawVal(f,  0.10,   0.90);
+  drawVal(a1, -0.090, -0.005);
+  drawVal(a2, -0.120, -0.005);
+  if (b1) drawVal(b1, -1.0e-4, 1.0e-4);
+  if (c1) drawVal(c1, -5.0e-6, 5.0e-6);
+
+  cout << "[INFO] 2Exp_new start " << attempt << " for " << pdf->GetName()
+       << " : f = "  << f->getVal()
+       << ", a1 = " << a1->getVal()
+       << ", a2 = " << a2->getVal();
+  if (b1) cout << ", b1 = " << b1->getVal();
+  if (c1) cout << ", c1 = " << c1->getVal();
+  cout << endl;
 
   return true;
 }
