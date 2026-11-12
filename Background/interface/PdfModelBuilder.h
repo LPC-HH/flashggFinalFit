@@ -94,7 +94,14 @@ class PdfModelBuilder {
     RooAbsPdf* getModBreitWigner(string prefix);
     RooAbsPdf* getBWZGamma(string prefix);
     RooAbsPdf* get2Exp(string prefix);
+    RooAbsPdf* get2ExpOld3(string prefix);
+    RooAbsPdf* get2ExpNew(string prefix, int order);
     RooAbsPdf* get2PowerLaw(string prefix);
+
+    // Alternative reproducible starting points for the 2Exp_new model
+    // (f, a1, a2 and, for the higher orders, b1 and c1).
+    // Returns false if 'pdf' is not a 2Exp_new pdf.
+    bool set2ExpNewInitValues(RooAbsPdf *pdf, unsigned int attempt);
 
     // Set the parameters of a 2Exp pdf to a starting configuration.
     // The 2Exp model is monotonically falling by construction (see get2Exp),
